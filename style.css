@@ -985,3 +985,17 @@ form[onsubmit*="handleHeroSearch"] button {
     border-color: #6366f1;
     transform: scale(1.05);
 }
+/* FIX GAMBAR DETAIL / GALERI TERPOTONG */
+.detail-slide {
+    background-color: rgba(0, 0, 0, 0.3); /* Latar belakang agak gelap biar estetik */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-slide img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important; /* Paksa gambar tampil utuh tanpa terpotong */
+    border-radius: 8px;
+}
