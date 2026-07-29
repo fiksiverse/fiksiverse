@@ -144,7 +144,8 @@ class FiksiVerseApp {
                     penulis: b.penulis || 'Anonim',
                     platform: b.platform || 'Lainnya',
                     sinopsis: b.sinopsis || 'Tidak ada sinopsis.',
-                    link: b.link || '#'
+                    link: b.link || '#',
+                    linkFisik: b.link_fisik || b.linkFisik || ''
                 };
             });
 
@@ -526,9 +527,6 @@ class FiksiVerseApp {
     /* ==========================================
        6. DETAIL VIEW & PREVIEW GALLERY
        ========================================== */
-        /* ==========================================
-       6. DETAIL VIEW & PREVIEW GALLERY
-       ========================================== */
     renderDetail(bookId) {
         const container = document.getElementById('detail-container');
         const book = this.books.find(b => b.id === bookId);
@@ -587,9 +585,20 @@ class FiksiVerseApp {
                         <p style="line-height: 1.6; color: var(--text-muted);">${book.sinopsis}</p>
                     </div>
 
-                    <a href="${book.link}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                        <i class="bi bi-box-arrow-up-right"></i> Baca Sekarang
-                    </a>
+                    <!-- TOMBOL AKSES BACA DIGITAL & BELI BUKU FISIK -->
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        ${book.link && book.link !== '#' ? `
+                            <a href="${book.link}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                <i class="bi bi-box-arrow-up-right"></i> Baca Digital
+                            </a>
+                        ` : ''}
+
+                        ${book.linkFisik ? `
+                            <a href="${book.linkFisik}" target="_blank" rel="noopener noreferrer" class="btn" style="display: inline-flex; align-items: center; gap: 0.5rem; background: #10b981; color: white; font-weight: 600;">
+                                <i class="bi bi-cart-check"></i> Beli Buku Fisik
+                            </a>
+                        ` : ''}
+                    </div>
                 </div>
             `;
         }
@@ -799,6 +808,10 @@ class FiksiVerseApp {
                 document.getElementById('book-platform').value = b.platform;
                 document.getElementById('book-cover').value = b.cover;
                 document.getElementById('book-link').value = b.link;
+
+                const linkFisikEl = document.getElementById('book-link-fisik');
+                if (linkFisikEl) linkFisikEl.value = b.linkFisik || '';
+
                 document.getElementById('book-genre').value = parseGenreData(b.genre).join(', ');
                 document.getElementById('book-sinopsis').value = b.sinopsis;
                 
@@ -809,6 +822,9 @@ class FiksiVerseApp {
             if (title) title.innerHTML = '<i class="bi bi-book"></i> Tambah Buku Baru';
             document.getElementById('book-id').value = '';
             document.getElementById('book-status').value = 'Ongoing';
+
+            const linkFisikEl = document.getElementById('book-link-fisik');
+            if (linkFisikEl) linkFisikEl.value = '';
         }
         modal.classList.remove('hidden');
     }
@@ -823,6 +839,7 @@ class FiksiVerseApp {
         const id = document.getElementById('book-id').value;
         const imagesInput = document.getElementById('book-images');
         const statusInput = document.getElementById('book-status').value;
+        const linkFisikEl = document.getElementById('book-link-fisik');
 
         const bookData = {
             judul: document.getElementById('book-judul').value,
@@ -833,6 +850,7 @@ class FiksiVerseApp {
             platform: document.getElementById('book-platform').value,
             cover: document.getElementById('book-cover').value,
             link: document.getElementById('book-link').value,
+            link_fisik: linkFisikEl ? linkFisikEl.value : '',
             genre: document.getElementById('book-genre').value.split(',').map(s => s.trim()).filter(Boolean),
             sinopsis: document.getElementById('book-sinopsis').value
         };
