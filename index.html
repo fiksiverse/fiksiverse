@@ -225,9 +225,14 @@
             <div id="admin-tab-books" class="admin-tab-content active">
                 <div class="flex justify-between align-center mb-3">
                     <h3>Daftar Katalog Buku</h3>
-                    <button class="btn btn-primary" onclick="app.openBookModal()">
-                        <i class="bi bi-plus-lg"></i> Tambah Buku Baru
-                    </button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="app.openBulkImportModal()">
+                            <i class="bi bi-file-earmark-arrow-up"></i> Import Banyak Buku
+                        </button>
+                        <button class="btn btn-primary" onclick="app.openBookModal()">
+                            <i class="bi bi-plus-lg"></i> Tambah Buku Baru
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="admin-table">
@@ -297,7 +302,7 @@
         <i class="bi bi-arrow-up"></i>
     </button>
 
-       <!-- ================= MODAL FORM BUKU ================= -->
+    <!-- ================= MODAL FORM BUKU ================= -->
     <div id="book-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -364,7 +369,7 @@
                     </small>
                 </div>
 
-                           <!-- LINK MEMBACA DIGITAL (OPSIONAL) -->
+                <!-- LINK MEMBACA DIGITAL (OPSIONAL) -->
                 <div class="form-group">
                     <label>URL Link Tempat Membaca Resmi (Opsional)</label>
                     <input type="url" id="book-link" class="form-control" placeholder="https://wattpad.com/...">
@@ -391,6 +396,42 @@
                 <div class="modal-actions">
                     <button type="button" onclick="app.closeBookModal()" class="btn btn-secondary">Batal</button>
                     <button type="submit" class="btn btn-primary">Simpan ke Cloud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL BULK IMPORT BANYAK BUKU ================= -->
+    <div id="bulk-import-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i class="bi bi-file-earmark-arrow-up"></i> Import Banyak Buku Sekaligus</h3>
+                <button type="button" onclick="app.closeBulkImportModal()" class="btn-close">&times;</button>
+            </div>
+            <form onsubmit="app.handleBulkImport(event)">
+                <div class="form-group mb-3">
+                    <label>Paste Data JSON List Buku di Bawah Ini:</label>
+                    <textarea id="bulk-import-json" class="form-control" rows="10" placeholder='[
+  {
+    "judul": "Buku Pertama",
+    "media": "Novel",
+    "status": "Ongoing",
+    "penulis": "Penulis A",
+    "platform": "Wattpad",
+    "cover": "https://images.unsplash.com/...",
+    "link": "https://wattpad.com/...",
+    "link_fisik": "https://shope.ee/...",
+    "genre": ["Fantasy", "Action"],
+    "sinopsis": "Sinopsis singkat..."
+  }
+]' required style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                </div>
+                <small class="text-muted d-block mb-3" style="font-size: 0.8rem; color: #a1a1aa;">
+                    *Tips: Kamu bisa minta AI (ChatGPT/Gemini) buat bikin list buku dalam bentuk JSON sesuai contoh placeholder di atas!
+                </small>
+                <div class="modal-actions" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" onclick="app.closeBulkImportModal()" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Proses Import</button>
                 </div>
             </form>
         </div>
@@ -434,7 +475,7 @@
         </div>
     </div>
 
-     <!-- ================= MODAL KONFIRMASI HAPUS ================= -->
+    <!-- ================= MODAL KONFIRMASI HAPUS ================= -->
     <div id="confirm-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 360px; text-align: center; padding: 1.5rem;">
             <div style="font-size: 2.5rem; color: #ef4444; margin-bottom: 0.5rem;">

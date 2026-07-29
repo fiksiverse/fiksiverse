@@ -785,7 +785,7 @@ class FiksiVerseApp {
     }
 
     /* ==========================================
-       8. MODAL FORM HANDLERS
+       8. MODAL FORM HANDLERS & BULK IMPORT
        ========================================== */
     openBookModal(id = null) {
         const modal = document.getElementById('book-modal');
@@ -875,6 +875,59 @@ class FiksiVerseApp {
             this.renderHome();
         } catch (err) {
             this.showToast('Gagal menyimpan: ' + err.message, 'error');
+        }
+    }
+
+    // --- FITUR BULK IMPORT ---
+    openBulkImportModal() {
+        const modal = document.getElementById('bulk-import-modal');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    closeBulkImportModal() {
+        const modal = document.getElementById('bulk-import-modal');
+        const jsonInput = document.getElementById('bulk-import-json');
+        if (jsonInput) jsonInput.value = '';
+        if (modal) modal.classList.add('hidden');
+    }
+
+    async handleBulkImport(e) {
+        e.preventDefault();
+        const rawInput = document.getElementById('bulk-import-json').value.trim();
+        if (!rawInput) return;
+
+        try {
+            const parsedData = JSON.parse(rawInput);
+            if (!Array.isArray(parsedData)) {
+                this.showToast('Format JSON harus berupa List/Array []', 'error');
+                return;
+            }
+
+            const formattedBooks = parsedData.map(b => ({
+                judul: b.judul || 'Tanpa Judul',
+                judul_alternatif: b.judul_alternatif || b.judulAlternatif || '',
+                media: b.media || 'Novel',
+                status: getSafeStatus(b.status),
+                penulis: b.penulis || 'Anonim',
+                platform: b.platform || 'Lainnya',
+                cover: b.cover || '',
+                link: b.link || '#',
+                link_fisik: b.link_fisik || b.linkFisik || '',
+                genre: Array.isArray(b.genre) ? b.genre : (b.genre ? String(b.genre).split(',').map(s=>s.trim()) : []),
+                sinopsis: b.sinopsis || ''
+            }));
+
+            const { data, error } = await supabaseClient.from('books').insert(formattedBooks);
+            if (error) throw error;
+
+            this.showToast(`Berhasil mengimpor ${formattedBooks.length} buku!`, 'success');
+            this.closeBulkImportModal();
+            await this.loadInitialData();
+            this.renderAdminBooksTable();
+            this.renderHome();
+        } catch (err) {
+            console.error('Bulk import error:', err);
+            this.showToast('Gagal import! Periksa format JSON: ' + err.message, 'error');
         }
     }
 
