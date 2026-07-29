@@ -878,7 +878,7 @@ class FiksiVerseApp {
         }
     }
 
-    // --- FITUR BULK IMPORT ---
+    // --- BULK IMPORT (SUPER FLEXIBLE AUTO-FIXER) ---
     openBulkImportModal() {
         const modal = document.getElementById('bulk-import-modal');
         if (modal) modal.classList.remove('hidden');
@@ -893,11 +893,71 @@ class FiksiVerseApp {
 
     async handleBulkImport(e) {
         e.preventDefault();
-        const rawInput = document.getElementById('bulk-import-json').value.trim();
+        let rawInput = document.getElementById('bulk-import-json').value.trim();
         if (!rawInput) return;
 
         try {
-            const parsedData = JSON.parse(rawInput);
+            // 1. Pembersih string & auto-fix petik / Enter liar
+            let cleanStr = "";
+            let inString = false;
+            let isEscaped = false;
+
+            for (let i = 0; i < rawInput.length; i++) {
+                let char = rawInput[i];
+
+                if (char === '"' && !isEscaped) {
+                    inString = !inString;
+                }
+
+                if (inString) {
+                    if (char === '\n') {
+                        // Cek kalau baris berikutnya tanda penutup }, tambahin petik penutup otomatis
+                        let nextTail = rawInput.slice(i + 1).trimStart();
+                        if (nextTail.startsWith('}') || nextTail.startsWith(']') || nextTail.startsWith('"') || nextTail.startsWith(',')) {
+                            cleanStr += '"';
+                            inString = false;
+                            cleanStr += char;
+                            continue;
+                        }
+                        cleanStr += '\\n';
+                    } else if (char === '\r') {
+                        cleanStr += '\\r';
+                    } else if (char === '\t') {
+                        cleanStr += '\\t';
+                    } else {
+                        cleanStr += char;
+                    }
+                } else {
+                    cleanStr += char;
+                }
+
+                if (char === '\\' && !isEscaped) {
+                    isEscaped = true;
+                } else {
+                    isEscaped = false;
+                }
+            }
+
+            // Jika petik belum ditutup sampai akhir
+            if (inString) {
+                cleanStr += '"';
+            }
+
+            // Bersihkan koma menggantung di akhir properti
+            cleanStr = cleanStr.replace(/,\s*([\]}])/g, '$1');
+
+            // 2. Parser Toleran
+            let parsedData;
+            try {
+                parsedData = JSON.parse(cleanStr);
+            } catch (err1) {
+                try {
+                    parsedData = (new Function("return " + cleanStr))();
+                } catch (err2) {
+                    throw err1;
+                }
+            }
+
             if (!Array.isArray(parsedData)) {
                 this.showToast('Format JSON harus berupa List/Array []', 'error');
                 return;
