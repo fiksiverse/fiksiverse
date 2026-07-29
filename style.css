@@ -923,3 +923,65 @@ form[onsubmit*="handleHeroSearch"] button {
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+/* GALERI PREVIEW DETAIL */
+.detail-gallery {
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.detail-slider-container {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    border-radius: 12px;
+    gap: 10px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.detail-slider-container::-webkit-scrollbar {
+    display: none;
+}
+
+.detail-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    width: 100%;
+    max-height: 420px;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.detail-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.detail-thumbnails {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    justify-content: center;
+}
+
+.thumb-item {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    cursor: pointer;
+    opacity: 0.5;
+    border: 2px solid transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+.thumb-item.active,
+.thumb-item:hover {
+    opacity: 1;
+    border-color: #6366f1;
+    transform: scale(1.05);
+}

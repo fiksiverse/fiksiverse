@@ -297,7 +297,7 @@
         <i class="bi bi-arrow-up"></i>
     </button>
 
-    <!-- ================= MODAL FORM BUKU ================= -->
+       <!-- ================= MODAL FORM BUKU ================= -->
     <div id="book-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -307,24 +307,28 @@
             <form id="book-form" onsubmit="app.handleSaveBook(event)">
                 <input type="hidden" id="book-id">
                 
+                <!-- 1. JUDUL (WAJIB) -->
                 <div class="form-group">
-                    <label>Judul Buku / Cerita</label>
+                    <label>Judul Buku / Cerita <span style="color: #ef4444;">*</span></label>
                     <input type="text" id="book-judul" class="form-control" required placeholder="Contoh: Solo Leveling">
                 </div>
 
+                <!-- 2. JUDUL ALT (OPSIONAL) -->
                 <div class="form-group">
                     <label>Judul Alternatif (Opsional)</label>
                     <input type="text" id="book-judul-alt" class="form-control" placeholder="Contoh: Only I Level Up">
                 </div>
 
                 <div class="form-row">
+                    <!-- 3. MEDIA (WAJIB) -->
                     <div class="form-group">
-                        <label>Media / Platform Format</label>
+                        <label>Media / Platform Format <span style="color: #ef4444;">*</span></label>
                         <select id="book-media" class="form-control" required></select>
                     </div>
+                    <!-- 4. STATUS (OPSIONAL) -->
                     <div class="form-group">
                         <label>Status</label>
-                        <select id="book-status" class="form-control" required>
+                        <select id="book-status" class="form-control">
                             <option value="Ongoing">Ongoing</option>
                             <option value="Completed">Completed</option>
                             <option value="Hiatus">Hiatus</option>
@@ -333,34 +337,49 @@
                 </div>
 
                 <div class="form-row">
+                    <!-- 5. PENULIS (OPSIONAL) -->
                     <div class="form-group">
-                        <label>Penulis</label>
-                        <input type="text" id="book-penulis" class="form-control" required placeholder="Contoh: Chugong">
+                        <label>Penulis (Opsional)</label>
+                        <input type="text" id="book-penulis" class="form-control" placeholder="Contoh: Chugong">
                     </div>
+                    <!-- 6. PLATFORM (OPSIONAL) -->
                     <div class="form-group">
-                        <label>Platform Penerbit</label>
+                        <label>Platform Penerbit (Opsional)</label>
                         <input type="text" id="book-platform" class="form-control" placeholder="Contoh: KakaoPage / Webtoon">
                     </div>
                 </div>
 
+                <!-- 7. COVER (OPSIONAL) -->
                 <div class="form-group">
-                    <label>URL Cover Gambar Direct (.jpg / .png)</label>
-                    <input type="url" id="book-cover" class="form-control" required placeholder="https://images.unsplash.com/...">
+                    <label>URL Cover Gambar Direct (.jpg / .png) (Opsional)</label>
+                    <input type="url" id="book-cover" class="form-control" placeholder="https://images.unsplash.com/...">
                 </div>
 
+                <!-- 8. GALERI FOTO (OPSIONAL) -->
                 <div class="form-group">
-                    <label>URL Link Tempat Membaca Resmi</label>
-                    <input type="url" id="book-link" class="form-control" required placeholder="https://...">
+                    <label>URL Foto Preview / Galeri (Opsional, pisahkan dengan koma)</label>
+                    <input type="text" id="book-images" class="form-control" placeholder="https://link1.jpg, https://link2.jpg">
+                    <small class="text-muted" style="font-size: 0.75rem; display: block; margin-top: 0.25rem;">
+                        Masukkan hingga 3 URL gambar tambahan untuk galeri foto di halaman detail.
+                    </small>
                 </div>
 
+                <!-- 9. LINK MEMBACA (OPSIONAL) -->
                 <div class="form-group">
-                    <label>Genre (Pisahkan dengan koma)</label>
-                    <input type="text" id="book-genre" class="form-control" required placeholder="Action, Fantasy, Adventure">
+                    <label>URL Link Tempat Membaca Resmi (Opsional)</label>
+                    <input type="url" id="book-link" class="form-control" placeholder="https://...">
                 </div>
 
+                <!-- 10. GENRE (OPSIONAL) -->
                 <div class="form-group">
-                    <label>Sinopsis Ringkas</label>
-                    <textarea id="book-sinopsis" class="form-control" rows="4" required placeholder="Tuliskan gambaran cerita secara singkat..."></textarea>
+                    <label>Genre (Opsional, pisahkan dengan koma)</label>
+                    <input type="text" id="book-genre" class="form-control" placeholder="Action, Fantasy, Adventure">
+                </div>
+
+                <!-- 11. SINOPSIS (OPSIONAL) -->
+                <div class="form-group">
+                    <label>Sinopsis Ringkas (Opsional)</label>
+                    <textarea id="book-sinopsis" class="form-control" rows="4" placeholder="Tuliskan gambaran cerita secara singkat..."></textarea>
                 </div>
 
                 <div class="modal-actions">

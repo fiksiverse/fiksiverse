@@ -3,7 +3,7 @@
  * Integrated with Supabase Cloud Database
  */
 
-// 1. HELPER ANTI-BUG GENRE
+// 1. HELPER ANTI-BUG GENRE & IMAGES
 function parseGenreData(rawGenre) {
     if (!rawGenre) return [];
     if (Array.isArray(rawGenre)) {
@@ -19,6 +19,29 @@ function parseGenreData(rawGenre) {
         return rawGenre.replace(/[\[\]"]/g, '').split(',').map(g => g.trim()).filter(Boolean);
     }
     return [];
+}
+
+function parseImagesData(rawImages) {
+    if (!rawImages) return [];
+    if (Array.isArray(rawImages)) {
+        return rawImages.map(img => String(img).replace(/[\[\]"]/g, '').trim()).filter(Boolean);
+    }
+    if (typeof rawImages === 'string') {
+        try {
+            const parsed = JSON.parse(rawImages);
+            if (Array.isArray(parsed)) {
+                return parsed.map(img => String(img).replace(/[\[\]"]/g, '').trim()).filter(Boolean);
+            }
+        } catch (e) {}
+        return rawImages.replace(/[\[\]"]/g, '').split(',').map(img => img.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+// Helper pengaman Status
+function getSafeStatus(status) {
+    if (!status || !String(status).trim()) return 'Ongoing';
+    return String(status).trim();
 }
 
 // 2. SUPABASE CONFIGURATION
@@ -46,7 +69,6 @@ const DEFAULT_MEDIA = [
 ];
 
 const DEFAULT_BANNERS = [];
-
 
 class FiksiVerseApp {
     constructor() {
@@ -104,19 +126,27 @@ class FiksiVerseApp {
 
             if (error) throw error;
 
-            this.books = (data || []).map(b => ({
-                id: b.id,
-                judul: b.judul || 'Tanpa Judul',
-                judulAlternatif: b.judul_alternatif || b.judulAlternatif || '',
-                cover: b.cover || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500&auto=format&fit=crop&q=80',
-                media: b.media || 'Novel',
-                genre: parseGenreData(b.genre),
-                status: b.status || 'Ongoing',
-                penulis: b.penulis || 'Anonim',
-                platform: b.platform || 'Lainnya',
-                sinopsis: b.sinopsis || 'Tidak ada sinopsis.',
-                link: b.link || '#'
-            }));
+            this.books = (data || []).map(b => {
+                const defaultCover = b.cover || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500&auto=format&fit=crop&q=80';
+                const parsedImages = parseImagesData(b.images || b.preview_images);
+                const allImages = [defaultCover, ...parsedImages];
+                const uniqueImages = [...new Set(allImages)].filter(Boolean).slice(0, 4);
+
+                return {
+                    id: b.id,
+                    judul: b.judul || 'Tanpa Judul',
+                    judulAlternatif: b.judul_alternatif || b.judulAlternatif || '',
+                    cover: defaultCover,
+                    images: uniqueImages,
+                    media: b.media || 'Novel',
+                    genre: parseGenreData(b.genre),
+                    status: getSafeStatus(b.status),
+                    penulis: b.penulis || 'Anonim',
+                    platform: b.platform || 'Lainnya',
+                    sinopsis: b.sinopsis || 'Tidak ada sinopsis.',
+                    link: b.link || '#'
+                };
+            });
 
         } catch (err) {
             console.error('Fetch books error:', err);
@@ -131,10 +161,10 @@ class FiksiVerseApp {
                 .select('*')
                 .order('id', { ascending: true });
 
-           if (error || !data || data.length === 0) {
-    this.banners = [];
-    return;
-}
+            if (error || !data || data.length === 0) {
+                this.banners = [];
+                return;
+            }
 
             this.banners = data.map(b => ({
                 id: b.id,
@@ -146,7 +176,7 @@ class FiksiVerseApp {
 
         } catch (err) {
             console.error('Fetch banners error:', err);
-            this.banners = DEFAULT_BANNERS;
+            this.banners = [];
         }
     }
 
@@ -274,7 +304,13 @@ class FiksiVerseApp {
     renderBannerSlider() {
         const wrapper = document.getElementById('banner-wrapper');
         const dotsContainer = document.getElementById('banner-dots');
-        if (!wrapper || !this.banners.length) return;
+        if (!wrapper) return;
+
+        if (!this.banners || !this.banners.length) {
+            wrapper.innerHTML = '';
+            if (dotsContainer) dotsContainer.innerHTML = '';
+            return;
+        }
 
         wrapper.innerHTML = this.banners.map(b => `
             <div class="banner-slide" style="background-image: url('${b.image}')" onclick="app.onBannerClick(${b.bookId})">
@@ -298,7 +334,9 @@ class FiksiVerseApp {
 
     updateBannerPosition() {
         const wrapper = document.getElementById('banner-wrapper');
-        if (wrapper) wrapper.style.transform = `translateX(-${this.bannerIndex * 100}%)`;
+        if (wrapper && this.banners.length) {
+            wrapper.style.transform = `translateX(-${this.bannerIndex * 100}%)`;
+        }
         document.querySelectorAll('.banner-dots .dot').forEach((dot, idx) => {
             dot.classList.toggle('active', idx === this.bannerIndex);
         });
@@ -353,14 +391,15 @@ class FiksiVerseApp {
     }
 
     generateBookCardHTML(book) {
-        const statusClass = `status-${book.status ? book.status.toLowerCase() : 'ongoing'}`;
+        const safeStatus = getSafeStatus(book.status);
+        const statusClass = `status-${safeStatus.toLowerCase()}`;
         const cleanGenres = parseGenreData(book.genre);
         
         return `
             <div class="book-card" onclick="app.navigateTo('detail', ${book.id})">
                 <div class="card-cover-wrapper">
                     <img src="${book.cover}" alt="${book.judul}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500&auto=format&fit=crop&q=80'">
-                    <span class="badge-status ${statusClass}">${book.status}</span>
+                    <span class="badge-status ${statusClass}">${safeStatus}</span>
                     <span class="badge-media">${book.media}</span>
                 </div>
                 <div class="card-body">
@@ -443,7 +482,7 @@ class FiksiVerseApp {
             const bookGenres = parseGenreData(b.genre);
             const matchGenre = genreVal === 'all' || bookGenres.includes(genreVal);
             
-            const matchStatus = statusVal === 'all' || b.status === statusVal;
+            const matchStatus = statusVal === 'all' || getSafeStatus(b.status).toLowerCase() === statusVal.toLowerCase();
 
             return matchSearch && matchMedia && matchGenre && matchStatus;
         });
@@ -476,57 +515,96 @@ class FiksiVerseApp {
 
         if (!filteredBooks.length) {
             grid.innerHTML = '';
-            emptyState.classList.remove('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
             return;
         }
 
-        emptyState.classList.add('hidden');
+        if (emptyState) emptyState.classList.add('hidden');
         grid.innerHTML = filteredBooks.map(b => this.generateBookCardHTML(b)).join('');
     }
 
     /* ==========================================
-       6. DETAIL VIEW
+       6. DETAIL VIEW & PREVIEW GALLERY
+       ========================================== */
+        /* ==========================================
+       6. DETAIL VIEW & PREVIEW GALLERY
        ========================================== */
     renderDetail(bookId) {
         const container = document.getElementById('detail-container');
         const book = this.books.find(b => b.id === bookId);
 
         if (!book) {
-            container.innerHTML = `<div class="text-center p-5"><h3>Buku tidak ditemukan.</h3></div>`;
+            if (container) container.innerHTML = `<div class="text-center p-5"><h3>Buku tidak ditemukan.</h3></div>`;
             return;
         }
 
         const genreArray = parseGenreData(book.genre);
+        const imageList = (book.images && book.images.length > 0) ? book.images : [book.cover];
+        const safeStatus = getSafeStatus(book.status);
 
-        container.innerHTML = `
-            <div class="detail-cover">
-                <img src="${book.cover}" alt="${book.judul}" onerror="this.src='https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500&auto=format&fit=crop&q=80'">
-            </div>
-            <div class="detail-info">
-                <h1 style="font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-bottom: 0.3rem;">${book.judul}</h1>
-                ${book.judulAlternatif ? `<p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.8rem;"><em>${book.judulAlternatif}</em></p>` : ''}
-                
-                <div class="detail-meta-list" style="margin-bottom: 1rem;">
-                    <div class="detail-meta-item"><strong>Penulis:</strong> ${book.penulis}</div>
-                    <div class="detail-meta-item"><strong>Media:</strong> ${book.media}</div>
-                    <div class="detail-meta-item"><strong>Status:</strong> <span class="badge-status status-${book.status.toLowerCase()}">${book.status}</span></div>
-                    <div class="detail-meta-item"><strong>Penerbit:</strong> ${book.platform}</div>
+        // Warna teks status biar tetep rapi & kontras
+        const statusColor = safeStatus.toLowerCase() === 'completed' ? '#10b981' : '#f59e0b';
+
+        const galleryHTML = `
+            <div class="detail-gallery">
+                <div class="detail-slider-container" id="detail-slider">
+                    ${imageList.map((img, idx) => `
+                        <div class="detail-slide" id="detail-slide-${idx}">
+                            <img src="${img}" alt="${book.judul}" onerror="this.src='https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=500&auto=format&fit=crop&q=80'">
+                        </div>
+                    `).join('')}
                 </div>
-
-                <div class="card-genres mb-3">
-                    ${genreArray.map(g => `<span class="genre-tag">${g}</span>`).join('')}
-                </div>
-
-                <div class="detail-sinopsis mb-4">
-                    <h4 style="font-weight: 700; margin-bottom: 0.5rem;">Sinopsis</h4>
-                    <p style="line-height: 1.6; color: var(--text-muted);">${book.sinopsis}</p>
-                </div>
-
-                <a href="${book.link}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                    <i class="bi bi-box-arrow-up-right"></i> Baca Sekarang
-                </a>
+                ${imageList.length > 1 ? `
+                    <div class="detail-thumbnails">
+                        ${imageList.map((img, idx) => `
+                            <img src="${img}" class="thumb-item ${idx === 0 ? 'active' : ''}" id="thumb-${idx}" onclick="app.scrollToDetailSlide(${idx})" alt="Thumb ${idx + 1}">
+                        `).join('')}
+                    </div>
+                ` : ''}
             </div>
         `;
+
+        if (container) {
+            container.innerHTML = `
+                ${galleryHTML}
+                <div class="detail-info">
+                    <h1 style="font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-bottom: 0.3rem;">${book.judul}</h1>
+                    ${book.judulAlternatif ? `<p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.8rem;"><em>${book.judulAlternatif}</em></p>` : ''}
+                    
+                    <div class="detail-meta-list" style="margin-bottom: 1rem;">
+                        <div class="detail-meta-item"><strong>Penulis:</strong> ${book.penulis}</div>
+                        <div class="detail-meta-item"><strong>Media:</strong> ${book.media}</div>
+                        <div class="detail-meta-item"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px;">${safeStatus}</span></div>
+                        <div class="detail-meta-item"><strong>Penerbit:</strong> ${book.platform}</div>
+                    </div>
+
+                    <div class="card-genres mb-3">
+                        ${genreArray.map(g => `<span class="genre-tag">${g}</span>`).join('')}
+                    </div>
+
+                    <div class="detail-sinopsis mb-4">
+                        <h4 style="font-weight: 700; margin-bottom: 0.5rem;">Sinopsis</h4>
+                        <p style="line-height: 1.6; color: var(--text-muted);">${book.sinopsis}</p>
+                    </div>
+
+                    <a href="${book.link}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <i class="bi bi-box-arrow-up-right"></i> Baca Sekarang
+                    </a>
+                </div>
+            `;
+        }
+    }
+
+    scrollToDetailSlide(index) {
+        const slider = document.getElementById('detail-slider');
+        const slide = document.getElementById(`detail-slide-${index}`);
+        if (slider && slide) {
+            slider.scrollTo({ left: slide.offsetLeft, behavior: 'smooth' });
+            
+            document.querySelectorAll('.thumb-item').forEach((t, i) => {
+                t.classList.toggle('active', i === index);
+            });
+        }
     }
 
     /* ==========================================
@@ -561,11 +639,15 @@ class FiksiVerseApp {
         document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
 
         if (tabName === 'books') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
-            document.getElementById('admin-tab-books').classList.remove('hidden');
+            const btn = document.querySelectorAll('.tab-btn')[0];
+            if (btn) btn.classList.add('active');
+            const tab = document.getElementById('admin-tab-books');
+            if (tab) tab.classList.remove('hidden');
         } else {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
-            document.getElementById('admin-tab-banners').classList.remove('hidden');
+            const btn = document.querySelectorAll('.tab-btn')[1];
+            if (btn) btn.classList.add('active');
+            const tab = document.getElementById('admin-tab-banners');
+            if (tab) tab.classList.remove('hidden');
         }
     }
 
@@ -578,23 +660,36 @@ class FiksiVerseApp {
         const tbody = document.getElementById('admin-books-table-body');
         if (!tbody) return;
 
-        tbody.innerHTML = this.books.map(b => `
+        if (!this.books.length) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center p-3 text-muted">Belum ada data buku.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = this.books.map(b => {
+            const safeStatus = getSafeStatus(b.status);
+            return `
             <tr>
                 <td><img src="${b.cover}" width="40" height="55" style="object-fit:cover; border-radius:4px;"></td>
                 <td><strong>${b.judul}</strong><br><small class="text-muted">${b.penulis}</small></td>
                 <td>${b.media}</td>
-                <td><span class="badge-status status-${b.status.toLowerCase()}">${b.status}</span></td>
+                <td><span class="badge-status status-${safeStatus.toLowerCase()}">${safeStatus}</span></td>
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="app.openBookModal(${b.id})"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="app.deleteBook(${b.id})"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     }
 
     renderAdminBanners() {
         const grid = document.getElementById('admin-banners-grid');
         if (!grid) return;
+
+        if (!this.banners.length) {
+            grid.innerHTML = `<p class="text-muted p-3">Belum ada banner terpasang.</p>`;
+            return;
+        }
 
         grid.innerHTML = this.banners.map(b => `
             <div class="card p-3" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:1rem;">
@@ -609,7 +704,6 @@ class FiksiVerseApp {
         `).join('');
     }
 
-    // Modal Konfirmasi (Native Dark Mode)
     confirmDialog(title, text) {
         return new Promise((resolve) => {
             const modal = document.getElementById('confirm-modal');
@@ -618,7 +712,7 @@ class FiksiVerseApp {
             const btnOk = document.getElementById('confirm-modal-ok');
             const btnCancel = document.getElementById('confirm-modal-cancel');
 
-            if (!modal) return resolve(false);
+            if (!modal) return resolve(window.confirm(`${title}\n${text}`));
 
             titleEl.textContent = title;
             textEl.textContent = text;
@@ -637,7 +731,6 @@ class FiksiVerseApp {
         });
     }
 
-    // ================= DELETE BOOK =================
     async deleteBook(id) {
         const confirmed = await this.confirmDialog('Hapus Buku?', 'Buku ini bakal dihapus permanen dari Supabase!');
         if (!confirmed) return;
@@ -660,9 +753,8 @@ class FiksiVerseApp {
         }
     }
 
-    // ================= DELETE BANNER =================
     async deleteBanner(id) {
-        const confirmed = await this.confirmDialog('Hapus Banner?', 'Banner ini bakal dihapus permanen dari cloud!');
+        const confirmed = await this.confirmDialog('Hapus Banner?', 'Banner ini bakal dihapus permanen!');
         if (!confirmed) return;
 
         try {
@@ -684,7 +776,7 @@ class FiksiVerseApp {
     }
 
     /* ==========================================
-       8. MODAL FORM HANDLERS (BOOKS & BANNERS)
+       8. MODAL FORM HANDLERS
        ========================================== */
     openBookModal(id = null) {
         const modal = document.getElementById('book-modal');
@@ -697,22 +789,26 @@ class FiksiVerseApp {
         if (id) {
             const b = this.books.find(x => x.id === id);
             if (b) {
-                title.innerHTML = '<i class="bi bi-pencil"></i> Edit Buku';
+                if (title) title.innerHTML = '<i class="bi bi-pencil"></i> Edit Buku';
                 document.getElementById('book-id').value = b.id;
                 document.getElementById('book-judul').value = b.judul;
                 document.getElementById('book-judul-alt').value = b.judulAlternatif || '';
                 document.getElementById('book-media').value = b.media;
-                document.getElementById('book-status').value = b.status;
+                document.getElementById('book-status').value = getSafeStatus(b.status);
                 document.getElementById('book-penulis').value = b.penulis;
                 document.getElementById('book-platform').value = b.platform;
                 document.getElementById('book-cover').value = b.cover;
                 document.getElementById('book-link').value = b.link;
                 document.getElementById('book-genre').value = parseGenreData(b.genre).join(', ');
                 document.getElementById('book-sinopsis').value = b.sinopsis;
+                
+                const imagesEl = document.getElementById('book-images');
+                if (imagesEl) imagesEl.value = (b.images || []).join(', ');
             }
         } else {
-            title.innerHTML = '<i class="bi bi-book"></i> Tambah Buku Baru';
+            if (title) title.innerHTML = '<i class="bi bi-book"></i> Tambah Buku Baru';
             document.getElementById('book-id').value = '';
+            document.getElementById('book-status').value = 'Ongoing';
         }
         modal.classList.remove('hidden');
     }
@@ -725,11 +821,14 @@ class FiksiVerseApp {
     async handleSaveBook(e) {
         e.preventDefault();
         const id = document.getElementById('book-id').value;
+        const imagesInput = document.getElementById('book-images');
+        const statusInput = document.getElementById('book-status').value;
+
         const bookData = {
             judul: document.getElementById('book-judul').value,
             judul_alternatif: document.getElementById('book-judul-alt').value,
             media: document.getElementById('book-media').value,
-            status: document.getElementById('book-status').value,
+            status: getSafeStatus(statusInput),
             penulis: document.getElementById('book-penulis').value,
             platform: document.getElementById('book-platform').value,
             cover: document.getElementById('book-cover').value,
@@ -737,6 +836,10 @@ class FiksiVerseApp {
             genre: document.getElementById('book-genre').value.split(',').map(s => s.trim()).filter(Boolean),
             sinopsis: document.getElementById('book-sinopsis').value
         };
+
+        if (imagesInput && imagesInput.value.trim()) {
+            bookData.images = imagesInput.value.split(',').map(s => s.trim()).filter(Boolean);
+        }
 
         try {
             if (id) {
