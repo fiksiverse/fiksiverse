@@ -45,15 +45,8 @@ const DEFAULT_MEDIA = [
     "Novel", "Komik", "AU Sosmed"
 ];
 
-const DEFAULT_BANNERS = [
-    {
-        id: 1,
-        title: "Solo Leveling: Kebangkitan Sang Shadow Monarch",
-        subtitle: "Ikuti perjalanan Sung Jinwoo dari Hunter terlemah menjadi entitas terkuat.",
-        bookId: null,
-        image: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80"
-    }
-];
+const DEFAULT_BANNERS = [];
+
 
 class FiksiVerseApp {
     constructor() {
@@ -138,10 +131,10 @@ class FiksiVerseApp {
                 .select('*')
                 .order('id', { ascending: true });
 
-            if (error || !data || data.length === 0) {
-                this.banners = DEFAULT_BANNERS;
-                return;
-            }
+           if (error || !data || data.length === 0) {
+    this.banners = [];
+    return;
+}
 
             this.banners = data.map(b => ({
                 id: b.id,
