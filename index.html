@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <!-- Supabase JS SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SweetAlert2 (Pop-up Konfirmasi Dark Mode) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- CSS Utama -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -106,7 +108,7 @@
             </div>
         </section>
 
-              <!-- ================= EXPLORE VIEW ================= -->
+        <!-- ================= EXPLORE VIEW ================= -->
         <section id="view-explore" class="view-section hidden">
             <!-- Compact Search Bar & Filter Toggle Row -->
             <div class="explore-bar-compact">
@@ -404,6 +406,21 @@
                     <button type="submit" class="btn btn-primary">Simpan Banner</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+     <!-- ================= MODAL KONFIRMASI HAPUS ================= -->
+    <div id="confirm-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 360px; text-align: center; padding: 1.5rem;">
+            <div style="font-size: 2.5rem; color: #ef4444; margin-bottom: 0.5rem;">
+                <i class="bi bi-exclamation-circle-fill"></i>
+            </div>
+            <h3 id="confirm-modal-title" style="margin-bottom: 0.5rem; font-size: 1.2rem; font-weight: 700;">Konfirmasi Hapus</h3>
+            <p id="confirm-modal-text" class="text-muted small" style="margin-bottom: 1.5rem;">Apakah kamu yakin ingin menghapus data ini?</p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button type="button" id="confirm-modal-cancel" class="btn btn-secondary w-full">Batal</button>
+                <button type="button" id="confirm-modal-ok" class="btn btn-danger w-full">Ya, Hapus</button>
+            </div>
         </div>
     </div>
 
