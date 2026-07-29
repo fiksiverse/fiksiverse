@@ -278,7 +278,7 @@ class FiksiVerseApp {
         `).join('');
     }
 
-        renderBannerSlider() {
+    renderBannerSlider() {
         const wrapper = document.getElementById('banner-wrapper');
         const dotsContainer = document.getElementById('banner-dots');
         if (!wrapper || !this.banners.length) return;
@@ -341,7 +341,6 @@ class FiksiVerseApp {
         const grid = document.getElementById('editor-grid');
         if (!grid || !this.books.length) return;
 
-        // Bikin rekomendasi tampil variatif (random shuffle 6 buku)
         const shuffled = [...this.books].sort(() => 0.5 - Math.random());
         grid.innerHTML = shuffled.slice(0, 6).map(b => this.generateBookCardHTML(b)).join('');
     }
@@ -350,7 +349,6 @@ class FiksiVerseApp {
         const grid = document.getElementById('recent-grid');
         if (!grid || !this.books.length) return;
 
-        // Tampilkan 6 buku paling baru (berdasarkan ID terbesar)
         const recent = [...this.books].sort((a, b) => b.id - a.id).slice(0, 6);
         grid.innerHTML = recent.map(b => this.generateBookCardHTML(b)).join('');
     }
@@ -515,27 +513,25 @@ class FiksiVerseApp {
                 <h1 style="font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-bottom: 0.3rem;">${book.judul}</h1>
                 ${book.judulAlternatif ? `<p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.8rem;"><em>${book.judulAlternatif}</em></p>` : ''}
                 
-                <div class="detail-meta-list">
-                    <div class="detail-meta-item"><span>Penulis</span><strong>${book.penulis}</strong></div>
-                    <div class="detail-meta-item"><span>Media</span><strong>${book.media}</strong></div>
-                    <div class="detail-meta-item"><span>Status</span><strong>${book.status}</strong></div>
-                    <div class="detail-meta-item"><span>Platform</span><strong>${book.platform}</strong></div>
+                <div class="detail-meta-list" style="margin-bottom: 1rem;">
+                    <div class="detail-meta-item"><strong>Penulis:</strong> ${book.penulis}</div>
+                    <div class="detail-meta-item"><strong>Media:</strong> ${book.media}</div>
+                    <div class="detail-meta-item"><strong>Status:</strong> <span class="badge-status status-${book.status.toLowerCase()}">${book.status}</span></div>
+                    <div class="detail-meta-item"><strong>Penerbit:</strong> ${book.platform}</div>
                 </div>
 
-                <div class="mb-3" style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
-                    ${genreArray.map(g => `<span class="genre-tag" style="font-size: 0.75rem; padding: 4px 10px;">${g}</span>`).join('')}
+                <div class="card-genres mb-3">
+                    ${genreArray.map(g => `<span class="genre-tag">${g}</span>`).join('')}
                 </div>
 
-                <h3 style="font-size: 1.05rem; font-weight: 700; margin-top: 1.2rem; margin-bottom: 0.4rem;">
-                    <i class="bi bi-text-paragraph text-primary"></i> Sinopsis
-                </h3>
-                <p class="text-muted" style="white-space: pre-line; font-size: 0.88rem; line-height: 1.6;">${book.sinopsis}</p>
-
-                <div class="mt-4">
-                    <a href="${book.link}" target="_blank" class="btn btn-primary w-full" style="padding: 0.7rem 1.2rem; font-size: 0.9rem;">
-                        <i class="bi bi-box-arrow-up-right"></i> Baca di ${book.platform}
-                    </a>
+                <div class="detail-sinopsis mb-4">
+                    <h4 style="font-weight: 700; margin-bottom: 0.5rem;">Sinopsis</h4>
+                    <p style="line-height: 1.6; color: var(--text-muted);">${book.sinopsis}</p>
                 </div>
+
+                <a href="${book.link}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <i class="bi bi-box-arrow-up-right"></i> Baca Sekarang
+                </a>
             </div>
         `;
     }
@@ -620,34 +616,112 @@ class FiksiVerseApp {
         `).join('');
     }
 
-    /* ==========================================
-       8. CRUD MODALS LOGIC (SUPABASE CLOUD)
-       ========================================== */
-    openBookModal(bookId = null) {
-        const modal = document.getElementById('book-modal');
-        const form = document.getElementById('book-form');
-        if (form) form.reset();
-        document.getElementById('book-id').value = '';
+    // Modal Konfirmasi (Native Dark Mode)
+    confirmDialog(title, text) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirm-modal');
+            const titleEl = document.getElementById('confirm-modal-title');
+            const textEl = document.getElementById('confirm-modal-text');
+            const btnOk = document.getElementById('confirm-modal-ok');
+            const btnCancel = document.getElementById('confirm-modal-cancel');
 
-        if (bookId) {
-            const b = this.books.find(x => x.id === bookId);
+            if (!modal) return resolve(false);
+
+            titleEl.textContent = title;
+            textEl.textContent = text;
+            modal.classList.remove('hidden');
+
+            const handleOk = () => { cleanup(); resolve(true); };
+            const handleCancel = () => { cleanup(); resolve(false); };
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                btnOk.removeEventListener('click', handleOk);
+                btnCancel.removeEventListener('click', handleCancel);
+            };
+
+            btnOk.addEventListener('click', handleOk);
+            btnCancel.addEventListener('click', handleCancel);
+        });
+    }
+
+    // ================= DELETE BOOK =================
+    async deleteBook(id) {
+        const confirmed = await this.confirmDialog('Hapus Buku?', 'Buku ini bakal dihapus permanen dari Supabase!');
+        if (!confirmed) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('books')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            this.showToast('Buku berhasil dihapus!', 'success');
+            await this.loadInitialData();
+            this.renderAdminBooksTable();
+            this.renderHome();
+        } catch (err) {
+            console.error(err);
+            this.showToast('Gagal: ' + err.message, 'error');
+        }
+    }
+
+    // ================= DELETE BANNER =================
+    async deleteBanner(id) {
+        const confirmed = await this.confirmDialog('Hapus Banner?', 'Banner ini bakal dihapus permanen dari cloud!');
+        if (!confirmed) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('banners')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            this.showToast('Banner berhasil dihapus!', 'success');
+            await this.fetchBannersFromSupabase();
+            this.renderAdminBanners();
+            this.renderBannerSlider();
+        } catch (err) {
+            console.error(err);
+            this.showToast('Gagal: ' + err.message, 'error');
+        }
+    }
+
+    /* ==========================================
+       8. MODAL FORM HANDLERS (BOOKS & BANNERS)
+       ========================================== */
+    openBookModal(id = null) {
+        const modal = document.getElementById('book-modal');
+        const title = document.getElementById('book-modal-title');
+        const form = document.getElementById('book-form');
+        
+        if (!modal) return;
+        form.reset();
+        
+        if (id) {
+            const b = this.books.find(x => x.id === id);
             if (b) {
+                title.innerHTML = '<i class="bi bi-pencil"></i> Edit Buku';
                 document.getElementById('book-id').value = b.id;
                 document.getElementById('book-judul').value = b.judul;
-                document.getElementById('book-judul-alt').value = b.judulAlternatif;
+                document.getElementById('book-judul-alt').value = b.judulAlternatif || '';
                 document.getElementById('book-media').value = b.media;
                 document.getElementById('book-status').value = b.status;
                 document.getElementById('book-penulis').value = b.penulis;
                 document.getElementById('book-platform').value = b.platform;
                 document.getElementById('book-cover').value = b.cover;
                 document.getElementById('book-link').value = b.link;
-                
-                const cleanGenres = parseGenreData(b.genre);
-                document.getElementById('book-genre').value = cleanGenres.join(', ');
+                document.getElementById('book-genre').value = parseGenreData(b.genre).join(', ');
                 document.getElementById('book-sinopsis').value = b.sinopsis;
             }
+        } else {
+            title.innerHTML = '<i class="bi bi-book"></i> Tambah Buku Baru';
+            document.getElementById('book-id').value = '';
         }
-        if (modal) modal.classList.remove('hidden');
+        modal.classList.remove('hidden');
     }
 
     closeBookModal() {
@@ -658,66 +732,46 @@ class FiksiVerseApp {
     async handleSaveBook(e) {
         e.preventDefault();
         const id = document.getElementById('book-id').value;
-        
-        const rawGenreInput = document.getElementById('book-genre').value;
-        const cleanGenreArray = parseGenreData(rawGenreInput);
-
-        const payload = {
-            judul: document.getElementById('book-judul').value.trim(),
-            judul_alternatif: document.getElementById('book-judul-alt').value.trim(),
+        const bookData = {
+            judul: document.getElementById('book-judul').value,
+            judul_alternatif: document.getElementById('book-judul-alt').value,
             media: document.getElementById('book-media').value,
             status: document.getElementById('book-status').value,
-            penulis: document.getElementById('book-penulis').value.trim(),
-            platform: document.getElementById('book-platform').value.trim(),
-            cover: document.getElementById('book-cover').value.trim(),
-            link: document.getElementById('book-link').value.trim(),
-            genre: cleanGenreArray,
-            sinopsis: document.getElementById('book-sinopsis').value.trim()
+            penulis: document.getElementById('book-penulis').value,
+            platform: document.getElementById('book-platform').value,
+            cover: document.getElementById('book-cover').value,
+            link: document.getElementById('book-link').value,
+            genre: document.getElementById('book-genre').value.split(',').map(s => s.trim()).filter(Boolean),
+            sinopsis: document.getElementById('book-sinopsis').value
         };
 
         try {
             if (id) {
-                const { error } = await supabaseClient.from('books').update(payload).eq('id', parseInt(id));
+                const { error } = await supabaseClient.from('books').update(bookData).eq('id', id);
                 if (error) throw error;
-                this.showToast('Buku diperbarui!', 'success');
+                this.showToast('Buku berhasil diperbarui!', 'success');
             } else {
-                const { error } = await supabaseClient.from('books').insert([payload]);
+                const { error } = await supabaseClient.from('books').insert([bookData]);
                 if (error) throw error;
-                this.showToast('Buku ditambahkan!', 'success');
+                this.showToast('Buku baru berhasil disimpan!', 'success');
             }
-
             this.closeBookModal();
-            await this.fetchBooksFromSupabase();
-            this.renderAdmin();
+            await this.loadInitialData();
+            this.renderAdminBooksTable();
             this.renderHome();
         } catch (err) {
-            console.error('Save book error:', err);
-            this.showToast('Gagal menyimpan buku', 'error');
+            this.showToast('Gagal menyimpan: ' + err.message, 'error');
         }
     }
 
-    async deleteBook(id) {
-        if (!confirm('Hapus buku ini dari cloud?')) return;
-        try {
-            const { error } = await supabaseClient.from('books').delete().eq('id', id);
-            if (error) throw error;
-            this.showToast('Buku dihapus', 'success');
-            await this.fetchBooksFromSupabase();
-            this.renderAdmin();
-            this.renderHome();
-        } catch (err) {
-            this.showToast('Gagal menghapus buku', 'error');
-        }
-    }
-
-    openBannerModal(bannerId = null) {
+    openBannerModal(id = null) {
         const modal = document.getElementById('banner-modal');
         const form = document.getElementById('banner-form');
-        if (form) form.reset();
-        document.getElementById('banner-id').value = '';
+        if (!modal) return;
+        form.reset();
 
-        if (bannerId) {
-            const b = this.banners.find(x => x.id === bannerId);
+        if (id) {
+            const b = this.banners.find(x => x.id === id);
             if (b) {
                 document.getElementById('banner-id').value = b.id;
                 document.getElementById('banner-title').value = b.title;
@@ -725,8 +779,10 @@ class FiksiVerseApp {
                 document.getElementById('banner-image').value = b.image;
                 document.getElementById('banner-book-id').value = b.bookId || '';
             }
+        } else {
+            document.getElementById('banner-id').value = '';
         }
-        if (modal) modal.classList.remove('hidden');
+        modal.classList.remove('hidden');
     }
 
     closeBannerModal() {
@@ -737,53 +793,36 @@ class FiksiVerseApp {
     async handleSaveBanner(e) {
         e.preventDefault();
         const id = document.getElementById('banner-id').value;
-        const bookIdVal = document.getElementById('banner-book-id').value;
-
-        const payload = {
-            title: document.getElementById('banner-title').value.trim(),
-            subtitle: document.getElementById('banner-subtitle').value.trim(),
-            image: document.getElementById('banner-image').value.trim(),
-            book_id: bookIdVal ? parseInt(bookIdVal) : null
+        const bannerData = {
+            title: document.getElementById('banner-title').value,
+            subtitle: document.getElementById('banner-subtitle').value,
+            image: document.getElementById('banner-image').value,
+            book_id: document.getElementById('banner-book-id').value ? parseInt(document.getElementById('banner-book-id').value) : null
         };
 
         try {
             if (id) {
-                const { error } = await supabaseClient.from('banners').update(payload).eq('id', parseInt(id));
+                const { error } = await supabaseClient.from('banners').update(bannerData).eq('id', id);
                 if (error) throw error;
-                this.showToast('Banner diperbarui!', 'success');
+                this.showToast('Banner berhasil diperbarui!', 'success');
             } else {
-                const { error } = await supabaseClient.from('banners').insert([payload]);
+                const { error } = await supabaseClient.from('banners').insert([bannerData]);
                 if (error) throw error;
-                this.showToast('Banner ditambahkan!', 'success');
+                this.showToast('Banner berhasil ditambahkan!', 'success');
             }
-
             this.closeBannerModal();
             await this.fetchBannersFromSupabase();
-            this.renderAdmin();
-            this.renderHome();
+            this.renderAdminBanners();
+            this.renderBannerSlider();
         } catch (err) {
-            console.error('Save banner error:', err);
-            this.showToast('Gagal menyimpan banner', 'error');
-        }
-    }
-
-    async deleteBanner(id) {
-        if (!confirm('Hapus banner ini?')) return;
-        try {
-            const { error } = await supabaseClient.from('banners').delete().eq('id', id);
-            if (error) throw error;
-            this.showToast('Banner dihapus', 'success');
-            await this.fetchBannersFromSupabase();
-            this.renderAdmin();
-            this.renderHome();
-        } catch (err) {
-            this.showToast('Gagal menghapus banner', 'error');
+            this.showToast('Gagal menyimpan banner: ' + err.message, 'error');
         }
     }
 }
 
-// Inisialisasi Aplikasi Saat DOM Ready
+// Global App Instance
+let app;
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new FiksiVerseApp();
-    window.app.init();
+    app = new FiksiVerseApp();
+    app.init();
 });

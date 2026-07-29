@@ -140,7 +140,7 @@ form[onsubmit*="handleHeroSearch"] {
     align-items: center;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 50px !important; /* Bikin kapsul rapi */
+    border-radius: 50px !important;
     padding: 4px 6px 4px 14px;
     max-width: 480px;
     width: 100%;
@@ -164,7 +164,7 @@ form[onsubmit*="handleHeroSearch"] input {
     color: #ffffff;
     font-size: 0.85rem;
     padding: 8px 4px;
-    min-width: 0; /* Biar gak meluap di mobile kecil */
+    min-width: 0;
 }
 
 .hero-search-box button,
@@ -172,11 +172,11 @@ form[onsubmit*="handleHeroSearch"] button {
     background: #6366f1 !important;
     color: #ffffff !important;
     border: none !important;
-    border-radius: 40px !important; /* Melengkung proporsional */
+    border-radius: 40px !important;
     padding: 8px 18px !important;
     font-size: 0.82rem !important;
     font-weight: 600 !important;
-    white-space: nowrap !important; /* KUNCI: Biar teks gak bakal ke-wrap 2 baris */
+    white-space: nowrap !important;
     flex-shrink: 0;
     cursor: pointer;
     box-shadow: none !important;
@@ -206,7 +206,7 @@ form[onsubmit*="handleHeroSearch"] button {
     color: var(--text-main);
 }
 
-/* ================= BANNER SLIDER (FIXED OVERLAP) ================= */
+/* ================= BANNER SLIDER ================= */
 .banner-container {
     max-width: 1100px;
     margin: 1rem auto 2rem;
@@ -227,7 +227,9 @@ form[onsubmit*="handleHeroSearch"] button {
     height: 240px;
     background-size: cover;
     background-position: center;
-    position: relative;
+    position: relative !important;
+    overflow: hidden;
+    border-radius: 16px;
     cursor: pointer;
 }
 
@@ -242,7 +244,7 @@ form[onsubmit*="handleHeroSearch"] button {
     bottom: 1rem;
     left: 1rem;
     right: 1rem;
-    padding-right: 2.5rem; /* Space agar tidak nabrak panah right */
+    padding-right: 2.5rem;
     padding-left: 0.5rem;
     z-index: 2;
     display: flex;
@@ -323,14 +325,33 @@ form[onsubmit*="handleHeroSearch"] button {
     border-radius: 8px;
 }
 
+/* Badge Sorotan Utama */
+.badge-sorotan {
+    position: absolute !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 5 !important;
+    background: rgba(99, 102, 241, 0.9) !important;
+    color: #ffffff !important;
+    padding: 4px 10px !important;
+    border-radius: 20px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    backdrop-filter: blur(4px);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* ================= GRID & CARDS ================= */
 .main-content {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 1rem 2.5rem; /* Padding atas dibikin 0 biar Home gak rusak */
+    padding: 0 1rem 2.5rem;
     flex: 1;
     width: 100%;
 }
+
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -454,7 +475,7 @@ form[onsubmit*="handleHeroSearch"] button {
     border-radius: 3px;
 }
 
-/* ================= DETAIL CARD (FIXED COVER & META GRID) ================= */
+/* ================= DETAIL CARD ================= */
 .detail-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -739,7 +760,7 @@ form[onsubmit*="handleHeroSearch"] button {
     font-size: 0.85rem;
 }
 
-/* BACK TO TOP (FIXED OVERLAP TO RIGHT SIDE) */
+/* BACK TO TOP */
 .back-to-top {
     position: fixed;
     bottom: 1.2rem;
@@ -807,36 +828,37 @@ form[onsubmit*="handleHeroSearch"] button {
     .hero-title { font-size: 1.5rem; }
     .banner-slide { height: 210px; }
     
-    /* Detail page mobile fix */
     .detail-card {
         grid-template-columns: 1fr;
         gap: 1.2rem;
         padding: 1.2rem;
     }
     .detail-cover img {
-        max-width: 160px; /* Cover kompak di tengah */
+        max-width: 160px;
         margin: 0 auto;
     }
     .detail-meta-list {
-        grid-template-columns: repeat(2, 1fr); /* Grid 2x2 rapi */
+        grid-template-columns: repeat(2, 1fr);
         gap: 0.8rem;
     }
 
     .form-row { grid-template-columns: 1fr; }
     .footer-container { grid-template-columns: 1fr; gap: 1.2rem; }
 }
-/* ================= EXPLORE COMPACT BAR ================= */
+
+/* EXPLORE COMPACT BAR */
 .explore-bar-compact {
     display: flex;
     gap: 0.6rem;
     align-items: center;
-    margin-top: 0.5rem; /* Jarak lega di atas bar pencarian */
+    margin-top: 0.5rem;
     margin-bottom: 1.2rem;
 }
 
 #view-detail {
-    padding-top: 0.5rem; /* Jarak lega buat tombol Kembali */
+    padding-top: 0.5rem;
 }
+
 .search-input-wrapper {
     position: relative;
     flex: 1;
@@ -868,7 +890,6 @@ form[onsubmit*="handleHeroSearch"] button {
     font-size: 0.85rem;
 }
 
-/* Filter Drawer Grid 2 kolom di HP */
 @media (max-width: 768px) {
     .filter-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -876,26 +897,20 @@ form[onsubmit*="handleHeroSearch"] button {
     }
 }
 
-/* ================= DETAIL VIEW SPACING FIX ================= */
-
-/* Give breathing room from Navbar */
 #view-detail {
     padding-top: 1.2rem;
 }
 
-/* Jarak antara Tombol Kembali dan Card Buku */
 #view-detail .btn,
 #view-detail button {
     margin-bottom: 1.2rem !important;
 }
 
-/* Padding dalam Card Buku biar gak sesak */
 .detail-card, 
 #detail-container {
     padding: 1.5rem 1.2rem !important;
 }
 
-/* Spacing & alignment gambar cover */
 .detail-cover {
     margin-top: 0.5rem;
     margin-bottom: 1.5rem;
@@ -907,54 +922,4 @@ form[onsubmit*="handleHeroSearch"] button {
     width: 100%;
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-/* ================= BANNER BADGE TOP ABSOLUTE FIX ================= */
-.banner-slide {
-    position: relative !important;
-    overflow: hidden;
-    border-radius: 16px;
-}
-
-/* Kunci badge di pojok kiri atas banner */
-.badge-sorotan {
-    position: absolute !important;
-    top: 12px !important;
-    left: 12px !important;
-    z-index: 20 !important;
-    margin: 0 !important;
-    padding: 5px 12px !important;
-    font-size: 0.7rem !important;
-    font-weight: 700 !important;
-    background: #6366f1 !important; /* Warna aksen utama */
-    color: #ffffff !important;
-    border-radius: 20px !important;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5) !important;
-}
-
-/* Konten teks (Judul & Subtitle) aman di paling bawah */
-.banner-content {
-    position: absolute !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    padding: 1rem 1.2rem !important;
-    z-index: 10 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-}
-
-.banner-title {
-    font-size: 1.25rem !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
-    line-height: 1.25 !important;
-    margin: 0 !important;
-}
-
-.banner-sub {
-    font-size: 0.8rem !important;
-    color: rgba(255, 255, 255, 0.85) !important;
-    line-height: 1.35 !important;
-    margin: 0 !important;
 }
