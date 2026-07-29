@@ -573,7 +573,7 @@ class FiksiVerseApp {
                         <div class="detail-meta-item"><strong>Penulis:</strong> ${book.penulis}</div>
                         <div class="detail-meta-item"><strong>Media:</strong> ${book.media}</div>
                         <div class="detail-meta-item"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px;">${safeStatus}</span></div>
-                        <div class="detail-meta-item"><strong>Penerbit:</strong> ${book.platform}</div>
+                        <div class="detail-meta-item"><strong>Platform:</strong> ${book.platform}</div>
                     </div>
 
                     <div class="card-genres mb-3">
