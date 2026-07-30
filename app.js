@@ -224,6 +224,7 @@ window.openBookFormById = async function(bookId = null) {
       document.getElementById('book-id').value = book.id
       document.getElementById('book-title').value = book.title || ''
       document.getElementById('book-author').value = book.author || ''
+      document.getElementById('book-platform').value = book.platform || ''
       document.getElementById('book-genre').value = book.genre || ''
       document.getElementById('book-media-type').value = book.media_type || 'Novel'
       document.getElementById('book-status').value = book.status || 'Ongoing'
@@ -282,6 +283,20 @@ window.deleteBanner = function(id) {
   })
 }
 
+window.deleteTag = function(id) {
+  window.showConfirmModal('Hapus Tag', 'Yakin ingin menghapus tag/genre ini?', async () => {
+    try {
+      const { error } = await supabase.from('tags').delete().eq('id', id)
+      if (error) throw error
+      window.showToast('Tag berhasil dihapus!')
+      loadExploreTags()
+      renderAdminTagList()
+    } catch (err) {
+      window.showToast('Gagal hapus tag: ' + err.message, 'error')
+    }
+  })
+}
+
 window.openBookDetail = async function(bookId) {
   try {
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
@@ -316,6 +331,7 @@ window.openBookDetail = async function(bookId) {
               <span style="padding:2px 8px; background:rgba(168,85,247,0.2); color:#e9d5ff; font-size:10px; border-radius:9999px; font-weight:700;">
                 ${book.media_type} • ${book.status}
               </span>
+              ${book.platform ? `<span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">📱 ${book.platform}</span>` : ''}
               ${book.genre ? `<span style="padding:2px 8px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:10px; border-radius:9999px; font-weight:600;">🏷️ ${book.genre}</span>` : ''}
             </div>
             <div style="font-size:12px; color:#fbbf24; padding-top:4px; font-weight:700;">
@@ -462,6 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAuthModal()
   setupBookFormModal()
   setupBannerFormModal()
+  setupTagFormModal()
   setupNotifAndSocialModal()
   setupEditProfileModal()
   setupConfirmModalEvents()
@@ -479,6 +496,7 @@ async function initAppData() {
   setupAuthUI()
   
   loadBanners().catch(err => console.log('Error banner:', err))
+  loadExploreTags().catch(err => console.log('Error explore tags:', err))
   loadRecommendedUsersHome().catch(err => console.log('Error rec users:', err))
   loadHomeBooks().catch(err => console.log('Error home books:', err))
   loadExploreBooks().catch(err => console.log('Error explore books:', err))
@@ -651,6 +669,33 @@ function setupBannerFormModal() {
   })
 }
 
+function setupTagFormModal() {
+  const modalTag = document.getElementById('modal-tag-form')
+  const btnClose = document.getElementById('close-modal-tag-form')
+  const formTag = document.getElementById('form-tag')
+
+  btnClose?.addEventListener('click', () => modalTag?.classList.add('hidden'))
+
+  formTag?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const tagName = document.getElementById('tag-name')?.value.trim()
+
+    if (!tagName) return
+
+    try {
+      const { error } = await supabase.from('tags').insert({ name: tagName })
+      if (error) throw error
+
+      window.showToast('Tag berhasil ditambahkan!')
+      formTag.reset()
+      loadExploreTags()
+      renderAdminTagList()
+    } catch (err) {
+      window.showToast('Gagal tambah tag: ' + err.message, 'error')
+    }
+  })
+}
+
 function setupBookFormModal() {
   const modalForm = document.getElementById('modal-book-form')
   const btnClose = document.getElementById('close-modal-book-form')
@@ -682,6 +727,7 @@ function setupBookFormModal() {
       {
         "title": "Solo Leveling",
         "author": "Chugong",
+        "platform": "KakaoPage",
         "genre": "Action, Fantasy",
         "media_type": "Komik",
         "status": "Completed",
@@ -693,6 +739,7 @@ function setupBookFormModal() {
       {
         "title": "Omniscient Reader",
         "author": "sing N song",
+        "platform": "Webtoon",
         "genre": "Action, Drama",
         "media_type": "Novel",
         "status": "Ongoing",
@@ -719,6 +766,7 @@ function setupBookFormModal() {
     const payload = {
       title: document.getElementById('book-title').value,
       author: document.getElementById('book-author').value,
+      platform: document.getElementById('book-platform').value.trim() || null,
       genre: document.getElementById('book-genre').value || null,
       media_type: document.getElementById('book-media-type').value,
       status: document.getElementById('book-status').value,
@@ -772,6 +820,7 @@ function setupBookFormModal() {
           title: b.title,
           author: b.author,
           cover_url: b.cover_url,
+          platform: b.platform || null,
           genre: b.genre || null,
           media_type: b.media_type || 'Novel',
           status: b.status || 'Ongoing',
@@ -846,33 +895,6 @@ function setupNavigation() {
     })
   })
 
-  document.querySelectorAll('.filter-tag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const tagValue = e.target.getAttribute('data-tag')
-
-      if (tagValue === 'all') {
-        selectedTags = []
-        document.querySelectorAll('.filter-tag-btn').forEach(b => b.classList.remove('active'))
-        e.target.classList.add('active')
-      } else {
-        document.querySelector('.filter-tag-btn[data-tag="all"]')?.classList.remove('active')
-
-        if (selectedTags.includes(tagValue)) {
-          selectedTags = selectedTags.filter(t => t !== tagValue)
-          e.target.classList.remove('active')
-        } else {
-          selectedTags.push(tagValue)
-          e.target.classList.add('active')
-        }
-
-        if (selectedTags.length === 0) {
-          document.querySelector('.filter-tag-btn[data-tag="all"]')?.classList.add('active')
-        }
-      }
-      loadExploreBooks()
-    })
-  })
-
   document.getElementById('explore-search')?.addEventListener('input', () => {
     if (exploreSearchMode === 'books') loadExploreBooks()
     else loadExploreUsers()
@@ -937,6 +959,77 @@ async function loadBanners() {
   }
 }
 
+// MEMUAT TAG/GENRE DINAMIS DI MENU EXPLORE
+async function loadExploreTags() {
+  const container = document.getElementById('explore-tag-group')
+  if (!container) return
+
+  const { data: dbTags } = await supabase.from('tags').select('*').order('name', { ascending: true })
+
+  const defaultTags = ['Action', 'Romance', 'Fantasy', 'Drama', 'Comedy', 'Horror', 'Angst', 'Slice of Life']
+  let allTags = []
+
+  if (dbTags && dbTags.length > 0) {
+    const customTagNames = dbTags.map(t => t.name)
+    allTags = Array.from(new Set([...defaultTags, ...customTagNames]))
+  } else {
+    allTags = defaultTags
+  }
+
+  container.innerHTML = `
+    <button class="filter-btn filter-tag-btn ${selectedTags.length === 0 ? 'active' : ''}" data-tag="all">Semua Tag</button>
+    ${allTags.map(t => `
+      <button class="filter-btn filter-tag-btn ${selectedTags.includes(t) ? 'active' : ''}" data-tag="${t}">${t}</button>
+    `).join('')}
+  `
+
+  container.querySelectorAll('.filter-tag-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tagValue = e.target.getAttribute('data-tag')
+
+      if (tagValue === 'all') {
+        selectedTags = []
+        container.querySelectorAll('.filter-tag-btn').forEach(b => b.classList.remove('active'))
+        e.target.classList.add('active')
+      } else {
+        container.querySelector('.filter-tag-btn[data-tag="all"]')?.classList.remove('active')
+
+        if (selectedTags.includes(tagValue)) {
+          selectedTags = selectedTags.filter(t => t !== tagValue)
+          e.target.classList.remove('active')
+        } else {
+          selectedTags.push(tagValue)
+          e.target.classList.add('active')
+        }
+
+        if (selectedTags.length === 0) {
+          container.querySelector('.filter-tag-btn[data-tag="all"]')?.classList.add('active')
+        }
+      }
+      loadExploreBooks()
+    })
+  })
+}
+
+async function renderAdminTagList() {
+  const container = document.getElementById('tag-admin-list')
+  if (!container) return
+
+  const { data: tags } = await supabase.from('tags').select('*').order('name', { ascending: true })
+
+  if (!tags || tags.length === 0) {
+    container.innerHTML = `<p style="font-size:11px; color:#94a3b8;">Belum ada tag kustom di database.</p>`
+    return
+  }
+
+  container.innerHTML = tags.map(t => `
+    <span style="display:inline-flex; align-items:center; gap:6px; background:rgba(244,63,94,0.15); color:#fda4af; border:1px solid rgba(244,63,94,0.3); padding:4px 10px; border-radius:9999px; font-size:11px; font-weight:600;">
+      ${t.name}
+      <i class="bi bi-x-circle-fill" onclick="deleteTag('${t.id}')" style="cursor:pointer; color:#f87171;"></i>
+    </span>
+  `).join('')
+}
+
 // CAROUSEL HORIZONTAL REKOMENDASI PENGGUNA DI HOME
 async function loadRecommendedUsersHome() {
   const container = document.getElementById('list-recommended-users-home')
@@ -986,9 +1079,15 @@ async function renderAdminBannerList() {
   `).join('')
 }
 
+// LOGIKA HOME BOOKS (TERMASUK RANDOM EDITOR PICKS)
 async function loadHomeBooks() {
-  const { data: popular } = await supabase.from('books').select('*').order('recommendation_count', { ascending: false }).limit(6)
-  renderBookHorizontal('list-popular', popular)
+  const { data: allBooks } = await supabase.from('books').select('*')
+  let editorPicks = []
+  
+  if (allBooks && allBooks.length > 0) {
+    editorPicks = [...allBooks].sort(() => 0.5 - Math.random()).slice(0, 6)
+  }
+  renderBookHorizontal('list-popular', editorPicks)
 
   const { data: recommended } = await supabase.from('books').select('*').order('recommendation_count', { ascending: false }).limit(6)
   renderBookHorizontal('list-recommended-home', recommended)
@@ -1010,14 +1109,13 @@ async function loadExploreBooks() {
   }
 
   if (searchQuery.trim() !== '') {
-    query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,genre.ilike.%${searchQuery}%`)
+    query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,genre.ilike.%${searchQuery}%,platform.ilike.%${searchQuery}%`)
   }
 
   const { data: books } = await query.order('created_at', { ascending: false })
   renderBookVertical('list-explore', books)
 }
 
-// MEMUAT DAFTAR USER/AKUN DI TAB EXPLORE
 async function loadExploreUsers() {
   const container = document.getElementById('list-explore-users')
   const searchInput = document.getElementById('explore-search')
@@ -1203,6 +1301,12 @@ async function loadProfile() {
           </button>
         </div>
 
+        <div>
+          <button id="btn-admin-tag" class="btn-full" style="font-size:11px; background:linear-gradient(135deg, #f43f5e, #a855f7); color:white; font-weight:700;">
+            <i class="bi bi-tags-fill"></i> Kelola Tag / Genre
+          </button>
+        </div>
+
         <div style="padding-top:8px;">
           <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:8px;">📚 Buku yang Ada di Semesta</h5>
           <div id="admin-books-list" class="space-y-2"></div>
@@ -1222,6 +1326,10 @@ async function loadProfile() {
     document.getElementById('btn-admin-banner')?.addEventListener('click', () => {
       document.getElementById('modal-banner-form')?.classList.remove('hidden')
       renderAdminBannerList()
+    })
+    document.getElementById('btn-admin-tag')?.addEventListener('click', () => {
+      document.getElementById('modal-tag-form')?.classList.remove('hidden')
+      renderAdminTagList()
     })
     loadAdminBooksList()
   }
@@ -1245,7 +1353,7 @@ async function loadAdminBooksList() {
         <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
         <div style="overflow:hidden;">
           <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-          <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+          <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span> ${b.platform ? `• <span style="color:#38bdf8;">${b.platform}</span>` : ''}</p>
         </div>
       </div>
       <div style="display:flex; gap:6px; margin-left:8px;">

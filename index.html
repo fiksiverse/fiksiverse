@@ -55,17 +55,17 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h2 class="section-title" style="margin-bottom:2px;">👥 Mutualan Yuk!</h2>
         </div>
-        <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang sama denganmu.</p>
+        <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang mirip sama kamu.</p>
         <div id="list-recommended-users-home" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
-      <!-- SECTION HORIZONTAL 1: POPULER -->
+      <!-- SECTION HORIZONTAL 1: REKOMENDASI EDITOR (RANDOM) -->
       <section>
-        <h2 class="section-title">🔥 Karya Populer</h2>
+        <h2 class="section-title">🎯 Rekomendasi Editor</h2>
         <div id="list-popular" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
-      <!-- SECTION HORIZONTAL 2: REKOMENDASI -->
+      <!-- SECTION HORIZONTAL 2: REKOMENDASI TERBANYAK -->
       <section>
         <h2 class="section-title">✨ Paling Banyak Direkomendasikan</h2>
         <div id="list-recommended-home" class="book-scroll-horizontal hide-scrollbar"></div>
@@ -88,7 +88,7 @@
           <span>Novel</span> • <span>Komik</span> • <span>Sosmed AU</span>
         </div>
         <p class="footer-copyright">Merekomendasikan bacaan & Melaporkan masalah | Hubungi: fiksiverse@gmail.com</p>
-        <p class="footer-copyright">© 2026 FiksiVerse.</p>
+        <p class="footer-copyright">© 2026 FiksiVerse Galaxy Edition. Built with ❤️ for Book Lovers.</p>
       </footer>
     </div>
 
@@ -121,16 +121,8 @@
 
         <div>
           <label class="filter-label">TAG / GENRE</label>
-          <div class="filter-group hide-scrollbar">
+          <div id="explore-tag-group" class="filter-group hide-scrollbar">
             <button class="filter-btn filter-tag-btn active" data-tag="all">Semua Tag</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Action">Action</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Romance">Romance</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Fantasy">Fantasy</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Drama">Drama</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Comedy">Comedy</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Horror">Horror</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Angst">Angst</button>
-            <button class="filter-btn filter-tag-btn" data-tag="Slice of Life">Slice of Life</button>
           </div>
         </div>
       </div>
@@ -293,6 +285,10 @@
           <input type="text" id="book-author" required placeholder="Contoh: Chugong" class="form-input">
         </div>
         <div class="form-group">
+          <label>Platform / Penerbit (Opsional)</label>
+          <input type="text" id="book-platform" placeholder="Contoh: Wattpad, Webtoon, KakaoPage, Fizzo" class="form-input">
+        </div>
+        <div class="form-group">
           <label>Genre (Pisahkan koma)</label>
           <input type="text" id="book-genre" placeholder="Action, Romance, Fantasy" class="form-input">
         </div>
@@ -347,9 +343,9 @@
             📋 Isi Template Contoh
           </button>
         </div>
-        <textarea id="bulk-json-input" rows="10" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
+        <textarea id="bulk-json-input" rows="10" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "platform": "Wattpad",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
         <p style="font-size:10px; color:#94a3b8; line-height:1.4;">
-          *Atribut wajib: <b>title</b>, <b>author</b>, <b>cover_url</b>. Opsional: <b>genre</b>, <b>media_type</b> (Novel/Komik/Sosmed AU), <b>status</b>, <b>synopsis</b>, <b>read_link</b>, <b>buy_link</b>.
+          *Atribut wajib: <b>title</b>, <b>author</b>, <b>cover_url</b>. Opsional: <b>platform</b>, <b>genre</b>, <b>media_type</b> (Novel/Komik/Sosmed AU), <b>status</b>, <b>synopsis</b>, <b>read_link</b>, <b>buy_link</b>.
         </p>
         <button type="submit" class="btn-full btn-galaxy-primary">🚀 Import Semua Buku</button>
       </form>
@@ -389,6 +385,31 @@
       <div>
         <h4 style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:8px;">Daftar Banner Aktif</h4>
         <div id="banner-admin-list" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL KELOLA TAG / GENRE (ADMIN) -->
+  <div id="modal-tag-form" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#f43f5e;">🏷️ Kelola Tag / Genre</span>
+        <button id="close-modal-tag-form" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="form-tag" class="space-y-3">
+        <div class="form-group">
+          <label>Nama Tag / Genre Baru</label>
+          <input type="text" id="tag-name" required placeholder="Contoh: Mystery, Sci-Fi, Thriller" class="form-input">
+        </div>
+        <button type="submit" class="btn-full" style="background:linear-gradient(135deg, #f43f5e, #a855f7); color:white; font-weight:700;">Tambah Tag</button>
+      </form>
+
+      <hr style="border:none; border-top:1px solid rgba(168, 85, 247, 0.2);">
+
+      <div>
+        <h4 style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:8px;">Daftar Tag Kustom</h4>
+        <div id="tag-admin-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
       </div>
     </div>
   </div>
