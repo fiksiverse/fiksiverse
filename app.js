@@ -6,6 +6,8 @@ let currentMediaFilter = 'all'
 let selectedTags = []
 let currentSlideIndex = 0
 let bannerInterval = null
+let touchStartX = 0
+let touchEndX = 0
 let onConfirmCallback = null
 
 // Mode pencarian di Tab Explore: 'books' atau 'users'
@@ -113,7 +115,8 @@ window.openUserProfile = async function(userId) {
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
 
-    const books = userRecs ? userRecs.map(r => r.books).filter(Boolean) : []
+    // Sembunyikan buku yang di-draft/hidden dari tampilan profil
+    const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
     container.innerHTML = `
       <div class="profile-card-hero">
@@ -251,6 +254,22 @@ window.openBookFormById = async function(bookId = null) {
   }
 
   modalForm?.classList.remove('hidden')
+}
+
+// TOGGLE SAKLAR TAMPILKAN / SEMBUNYIKAN BUKU DARI PUBLIK (SOFT HIDE)
+window.togglePublishBook = async function(bookId, currentStatus) {
+  try {
+    const nextStatus = !currentStatus
+    const { error } = await supabase.from('books').update({ is_published: nextStatus }).eq('id', bookId)
+    if (error) throw error
+
+    window.showToast(nextStatus ? 'Buku ditampilkan ke publik!' : 'Buku tersembunyi dari publik (Draft)')
+    loadAdminBooksList()
+    loadHomeBooks()
+    loadExploreBooks()
+  } catch (err) {
+    window.showToast('Gagal ubah status publikasi: ' + err.message, 'error')
+  }
 }
 
 window.deleteBook = function(bookId) {
@@ -731,6 +750,7 @@ function setupBookFormModal() {
         "genre": "Action, Fantasy",
         "media_type": "Komik",
         "status": "Completed",
+        "is_published": true,
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
         "read_link": "https://kakao.com/solo-leveling",
         "buy_link": "https://tokopedia.com/komik-solo-leveling",
@@ -743,6 +763,7 @@ function setupBookFormModal() {
         "genre": "Action, Drama",
         "media_type": "Novel",
         "status": "Ongoing",
+        "is_published": true,
         "cover_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
         "read_link": "https://webtoon.com/orv",
         "buy_link": "https://shopee.co.id/novel-orv",
@@ -783,6 +804,7 @@ function setupBookFormModal() {
         if (error) throw error
         window.showToast('Buku berhasil diperbarui!')
       } else {
+        payload.is_published = true // Default dipublikasikan saat buat baru
         const { error } = await supabase.from('books').insert(payload)
         if (error) throw error
         window.showToast('Buku baru berhasil ditambahkan!')
@@ -824,6 +846,7 @@ function setupBookFormModal() {
           genre: b.genre || null,
           media_type: b.media_type || 'Novel',
           status: b.status || 'Ongoing',
+          is_published: b.is_published !== undefined ? b.is_published : true,
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
           buy_link: b.buy_link || null,
@@ -922,10 +945,13 @@ function setupNotifAndSocialModal() {
 // ==========================================
 // 4. DATA FETCHING & RENDERING
 // ==========================================
+
+// BANNER CAROUSEL SENSITIF DENGAN SWIPE & DURATION CONTROL (5 DETIK)
 async function loadBanners() {
   const { data: banners } = await supabase.from('banners').select('*').order('created_at', { ascending: false })
   const slider = document.getElementById('banner-slider')
   const dotsContainer = document.getElementById('banner-dots')
+  const wrapper = document.querySelector('.banner-carousel-wrapper')
 
   if (!slider || !banners || banners.length === 0) return
 
@@ -942,21 +968,65 @@ async function loadBanners() {
     </div>
   `).join('')
 
-  if (dotsContainer) {
-    dotsContainer.innerHTML = banners.map((_, i) => `<div class="banner-dot ${i === 0 ? 'active' : ''}"></div>`).join('')
+  // Fungsi navigasi banner manual via indikator
+  window.goToBanner = function(index) {
+    currentSlideIndex = index
+    slider.style.transform = `translateX(-${currentSlideIndex * 100}%)`
+    document.querySelectorAll('.banner-dot').forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === currentSlideIndex)
+    })
+    resetBannerTimer(banners.length)
   }
 
-  if (bannerInterval) clearInterval(bannerInterval)
-  if (banners.length > 1) {
-    bannerInterval = setInterval(() => {
-      currentSlideIndex = (currentSlideIndex + 1) % banners.length
-      slider.style.transform = `translateX(-${currentSlideIndex * 100}%)`
-      document.querySelectorAll('.banner-dot').forEach((dot, idx) => {
-        if (idx === currentSlideIndex) dot.classList.add('active')
-        else dot.classList.remove('active')
-      })
-    }, 4000)
+  if (dotsContainer) {
+    dotsContainer.innerHTML = banners.map((_, i) => `
+      <div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="window.goToBanner(${i})"></div>
+    `).join('')
   }
+
+  // SWIPE DENGAN JARI (TOUCH EVENTS)
+  if (wrapper && !wrapper.dataset.swipeBound) {
+    wrapper.dataset.swipeBound = 'true'
+
+    wrapper.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX
+      stopBannerTimer()
+    }, { passive: true })
+
+    wrapper.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX
+      const threshold = 40 // Minimal gesekan piksel
+      if (touchStartX - touchEndX > threshold) {
+        // Swipe Kiri -> Next
+        window.goToBanner((currentSlideIndex + 1) % banners.length)
+      } else if (touchEndX - touchStartX > threshold) {
+        // Swipe Kanan -> Prev
+        window.goToBanner((currentSlideIndex - 1 + banners.length) % banners.length)
+      } else {
+        startBannerTimer(banners.length)
+      }
+    }, { passive: true })
+  }
+
+  startBannerTimer(banners.length)
+}
+
+function startBannerTimer(total) {
+  stopBannerTimer()
+  if (total <= 1) return
+  bannerInterval = setInterval(() => {
+    currentSlideIndex = (currentSlideIndex + 1) % total
+    window.goToBanner(currentSlideIndex)
+  }, 5000) // Waktu diperlambat jadi 5000ms (5 Detik)
+}
+
+function stopBannerTimer() {
+  if (bannerInterval) clearInterval(bannerInterval)
+}
+
+function resetBannerTimer(total) {
+  stopBannerTimer()
+  startBannerTimer(total)
 }
 
 // MEMUAT TAG/GENRE DINAMIS DI MENU EXPLORE
@@ -1079,9 +1149,9 @@ async function renderAdminBannerList() {
   `).join('')
 }
 
-// LOGIKA HOME BOOKS (TERMASUK RANDOM EDITOR PICKS)
+// LOGIKA HOME BOOKS (DENGAN FILTER is_published = true TERBARU)
 async function loadHomeBooks() {
-  const { data: allBooks } = await supabase.from('books').select('*')
+  const { data: allBooks } = await supabase.from('books').select('*').eq('is_published', true)
   let editorPicks = []
   
   if (allBooks && allBooks.length > 0) {
@@ -1089,17 +1159,18 @@ async function loadHomeBooks() {
   }
   renderBookHorizontal('list-popular', editorPicks)
 
-  const { data: recommended } = await supabase.from('books').select('*').order('recommendation_count', { ascending: false }).limit(6)
+  const { data: recommended } = await supabase.from('books').select('*').eq('is_published', true).order('recommendation_count', { ascending: false }).limit(6)
   renderBookHorizontal('list-recommended-home', recommended)
 
-  const { data: newest } = await supabase.from('books').select('*').order('created_at', { ascending: false }).limit(6)
+  const { data: newest } = await supabase.from('books').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(6)
   renderBookHorizontal('list-newest', newest)
 }
 
+// LOGIKA EXPLORE BOOKS (DENGAN FILTER is_published = true TERBARU)
 async function loadExploreBooks() {
   const searchInput = document.getElementById('explore-search')
   const searchQuery = searchInput ? searchInput.value : ''
-  let query = supabase.from('books').select('*')
+  let query = supabase.from('books').select('*').eq('is_published', true)
 
   if (currentMediaFilter !== 'all') query = query.eq('media_type', currentMediaFilter)
 
@@ -1209,13 +1280,15 @@ function renderBookVertical(containerId, books) {
 async function loadUserBookmarks() {
   if (!currentUser) return
   const { data: bookmarks } = await supabase.from('bookmarks').select('books(*)').eq('user_id', currentUser.id)
-  renderBookVertical('list-bookmark', bookmarks ? bookmarks.map(b => b.books) : [])
+  const validBooks = bookmarks ? bookmarks.map(b => b.books).filter(b => b && b.is_published !== false) : []
+  renderBookVertical('list-bookmark', validBooks)
 }
 
 async function loadUserRecommendations() {
   if (!currentUser) return
   const { data: recs } = await supabase.from('recommendations').select('books(*)').eq('user_id', currentUser.id)
-  renderBookVertical('list-user-recommended', recs ? recs.map(r => r.books) : [])
+  const validBooks = recs ? recs.map(r => r.books).filter(b => b && b.is_published !== false) : []
+  renderBookVertical('list-user-recommended', validBooks)
 }
 
 async function loadProfile() {
@@ -1336,6 +1409,7 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
+// DASHBOARD ADMIN BUKU DENGAN STATUS DRAFT / PUBLISHED & TOMBOL TOGGLE SAKLAR
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1347,25 +1421,34 @@ async function loadAdminBooksList() {
     return
   }
 
-  container.innerHTML = books.map(b => `
-    <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
-      <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-        <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-        <div style="overflow:hidden;">
-          <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-          <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span> ${b.platform ? `• <span style="color:#38bdf8;">${b.platform}</span>` : ''}</p>
+  container.innerHTML = books.map(b => {
+    const isPub = b.is_published !== false
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
+          <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+          <div style="overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
+              <span class="${isPub ? 'badge-published' : 'badge-draft'}">${isPub ? 'Publik' : 'Draft'}</span>
+            </div>
+            <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span> ${b.platform ? `• <span style="color:#38bdf8;">${b.platform}</span>` : ''}</p>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; margin-left:8px;">
+          <button onclick="togglePublishBook('${b.id}', ${isPub})" title="${isPub ? 'Sembunyikan' : 'Tampilkan'}" style="background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+            ${isPub ? '👁️' : '🙈'}
+          </button>
+          <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+            ✏️
+          </button>
+          <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+            🗑️
+          </button>
         </div>
       </div>
-      <div style="display:flex; gap:6px; margin-left:8px;">
-        <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-          ✏️ Edit
-        </button>
-        <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-          🗑️
-        </button>
-      </div>
-    </div>
-  `).join('')
+    `
+  }).join('')
 }
 
 async function checkUnreadNotifications() {
