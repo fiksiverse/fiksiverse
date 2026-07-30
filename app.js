@@ -115,7 +115,6 @@ window.openUserProfile = async function(userId) {
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
 
-    // Sembunyikan buku yang di-draft/hidden dari tampilan profil
     const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
     container.innerHTML = `
@@ -272,6 +271,42 @@ window.togglePublishBook = async function(bookId, currentStatus) {
   }
 }
 
+// FUNGSI MEMBUKA EDIT BANNER
+window.openEditBannerForm = async function(bannerId) {
+  try {
+    const { data: banner } = await supabase.from('banners').select('*').eq('id', bannerId).single()
+    if (!banner) return
+
+    let idInput = document.getElementById('banner-id')
+    if (!idInput) {
+      idInput = document.createElement('input')
+      idInput.type = 'hidden'
+      idInput.id = 'banner-id'
+      document.getElementById('form-banner')?.appendChild(idInput)
+    }
+    idInput.value = banner.id
+
+    document.getElementById('banner-title').value = banner.title || ''
+    document.getElementById('banner-desc').value = banner.description || ''
+    document.getElementById('banner-img-url').value = banner.image_url || ''
+    document.getElementById('banner-link-url').value = banner.link_url || ''
+
+    const submitBtn = document.getElementById('form-banner')?.querySelector('button[type="submit"]')
+    if (submitBtn) submitBtn.innerText = 'Update Banner'
+  } catch (err) {
+    window.showToast('Gagal memuat data banner', 'error')
+  }
+}
+
+window.resetBannerForm = function() {
+  const formBanner = document.getElementById('form-banner')
+  if (formBanner) formBanner.reset()
+  const idInput = document.getElementById('banner-id')
+  if (idInput) idInput.value = ''
+  const submitBtn = formBanner?.querySelector('button[type="submit"]')
+  if (submitBtn) submitBtn.innerText = 'Tambah Banner'
+}
+
 window.deleteBook = function(bookId) {
   window.showConfirmModal('Hapus Buku', 'Apakah kamu yakin ingin menghapus buku ini secara permanen?', async () => {
     try {
@@ -296,6 +331,7 @@ window.deleteBanner = function(id) {
       window.showToast('Banner berhasil dihapus!')
       loadBanners()
       renderAdminBannerList()
+      window.resetBannerForm()
     } catch (err) {
       window.showToast('Gagal hapus banner: ' + err.message, 'error')
     }
@@ -664,10 +700,15 @@ function setupBannerFormModal() {
   const btnClose = document.getElementById('close-modal-banner-form')
   const formBanner = document.getElementById('form-banner')
 
-  btnClose?.addEventListener('click', () => modalBanner?.classList.add('hidden'))
+  btnClose?.addEventListener('click', () => {
+    modalBanner?.classList.add('hidden')
+    window.resetBannerForm()
+  })
 
   formBanner?.addEventListener('submit', async (e) => {
     e.preventDefault()
+    const bannerId = document.getElementById('banner-id')?.value
+
     const payload = {
       title: document.getElementById('banner-title').value,
       description: document.getElementById('banner-desc').value || null,
@@ -676,14 +717,21 @@ function setupBannerFormModal() {
     }
 
     try {
-      const { error } = await supabase.from('banners').insert(payload)
-      if (error) throw error
-      window.showToast('Banner berhasil ditambahkan!')
-      formBanner.reset()
+      if (bannerId) {
+        const { error } = await supabase.from('banners').update(payload).eq('id', bannerId)
+        if (error) throw error
+        window.showToast('Banner berhasil diperbarui!')
+      } else {
+        const { error } = await supabase.from('banners').insert(payload)
+        if (error) throw error
+        window.showToast('Banner baru berhasil ditambahkan!')
+      }
+
+      window.resetBannerForm()
       loadBanners()
       renderAdminBannerList()
     } catch (err) {
-      window.showToast('Gagal tambah banner: ' + err.message, 'error')
+      window.showToast('Gagal simpan banner: ' + err.message, 'error')
     }
   })
 }
@@ -804,7 +852,7 @@ function setupBookFormModal() {
         if (error) throw error
         window.showToast('Buku berhasil diperbarui!')
       } else {
-        payload.is_published = true // Default dipublikasikan saat buat baru
+        payload.is_published = true
         const { error } = await supabase.from('books').insert(payload)
         if (error) throw error
         window.showToast('Buku baru berhasil ditambahkan!')
@@ -968,7 +1016,6 @@ async function loadBanners() {
     </div>
   `).join('')
 
-  // Fungsi navigasi banner manual via indikator
   window.goToBanner = function(index) {
     currentSlideIndex = index
     slider.style.transform = `translateX(-${currentSlideIndex * 100}%)`
@@ -984,7 +1031,6 @@ async function loadBanners() {
     `).join('')
   }
 
-  // SWIPE DENGAN JARI (TOUCH EVENTS)
   if (wrapper && !wrapper.dataset.swipeBound) {
     wrapper.dataset.swipeBound = 'true'
 
@@ -995,12 +1041,10 @@ async function loadBanners() {
 
     wrapper.addEventListener('touchend', (e) => {
       touchEndX = e.changedTouches[0].screenX
-      const threshold = 40 // Minimal gesekan piksel
+      const threshold = 40
       if (touchStartX - touchEndX > threshold) {
-        // Swipe Kiri -> Next
         window.goToBanner((currentSlideIndex + 1) % banners.length)
       } else if (touchEndX - touchStartX > threshold) {
-        // Swipe Kanan -> Prev
         window.goToBanner((currentSlideIndex - 1 + banners.length) % banners.length)
       } else {
         startBannerTimer(banners.length)
@@ -1017,7 +1061,7 @@ function startBannerTimer(total) {
   bannerInterval = setInterval(() => {
     currentSlideIndex = (currentSlideIndex + 1) % total
     window.goToBanner(currentSlideIndex)
-  }, 5000) // Waktu diperlambat jadi 5000ms (5 Detik)
+  }, 5000)
 }
 
 function stopBannerTimer() {
@@ -1127,6 +1171,7 @@ async function loadRecommendedUsersHome() {
   `).join('')
 }
 
+// RENDER DAFTAR BANNER DENGAN TOMBOL EDIT & HAPUS
 async function renderAdminBannerList() {
   const container = document.getElementById('banner-admin-list')
   if (!container) return
@@ -1140,16 +1185,18 @@ async function renderAdminBannerList() {
 
   container.innerHTML = banners.map(b => `
     <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 12px; border-radius:10px; border:1px solid rgba(168,85,247,0.2);">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <img src="${b.image_url}" style="width:40px; height:28px; object-fit:cover; border-radius:4px;">
-        <span style="font-size:12px; font-weight:600; color:#f8fafc;">${b.title}</span>
+      <div style="display:flex; align-items:center; gap:8px; flex:1; overflow:hidden;">
+        <img src="${b.image_url}" style="width:40px; height:28px; object-fit:cover; border-radius:4px; flex-shrink:0;">
+        <span style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</span>
       </div>
-      <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Hapus</button>
+      <div style="display:flex; gap:6px; margin-left:8px;">
+        <button onclick="openEditBannerForm('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✏️ Edit</button>
+        <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Hapus</button>
+      </div>
     </div>
   `).join('')
 }
 
-// LOGIKA HOME BOOKS (DENGAN FILTER is_published = true TERBARU)
 async function loadHomeBooks() {
   const { data: allBooks } = await supabase.from('books').select('*').eq('is_published', true)
   let editorPicks = []
@@ -1166,7 +1213,6 @@ async function loadHomeBooks() {
   renderBookHorizontal('list-newest', newest)
 }
 
-// LOGIKA EXPLORE BOOKS (DENGAN FILTER is_published = true TERBARU)
 async function loadExploreBooks() {
   const searchInput = document.getElementById('explore-search')
   const searchQuery = searchInput ? searchInput.value : ''
@@ -1409,7 +1455,6 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// DASHBOARD ADMIN BUKU DENGAN STATUS DRAFT / PUBLISHED & TOMBOL TOGGLE SAKLAR
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
