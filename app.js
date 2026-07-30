@@ -13,6 +13,11 @@ let onConfirmCallback = null
 // Mode pencarian di Tab Explore: 'books' atau 'users'
 let exploreSearchMode = 'books'
 
+// HELPER UNTUK MENCEGAH TOMBOL BACK HP KELUAR DARI WEB
+function pushHistoryState(type, id = null) {
+  history.pushState({ type, id, timestamp: Date.now() }, '')
+}
+
 // ==========================================
 // 1. REGISTRASI FUNGSI GLOBAL (WINDOW)
 // ==========================================
@@ -46,9 +51,10 @@ window.showConfirmModal = function(title, message, callback) {
   if (msgEl) msgEl.innerText = message
   onConfirmCallback = callback
   modal?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-confirm')
 }
 
-window.switchTab = function(tabId) {
+window.switchTab = function(tabId, recordHistory = true) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'))
   const targetTab = document.getElementById(tabId)
   if (targetTab) targetTab.classList.remove('hidden')
@@ -57,6 +63,10 @@ window.switchTab = function(tabId) {
     if (btn.getAttribute('data-tab') === tabId) btn.classList.add('active')
     else btn.classList.remove('active')
   })
+
+  if (recordHistory && tabId !== 'tab-home') {
+    pushHistoryState('tab', tabId)
+  }
 }
 
 window.openEditProfileModal = function() {
@@ -82,6 +92,7 @@ window.openEditProfileModal = function() {
   if (cB) cB.innerText = `${(p?.bio || '').length}/150`
 
   document.getElementById('modal-edit-profile')?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-edit-profile')
 }
 
 // FUNGSI MEMBUKA PROFIL AKUN LAIN (PUBLIC PROFILE)
@@ -97,6 +108,7 @@ window.openUserProfile = async function(userId) {
 
   container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:20px 0;">Memuat profil...</p>`
   modal?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-user-profile')
 
   try {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single()
@@ -174,7 +186,6 @@ window.openUserProfile = async function(userId) {
   }
 }
 
-// FUNGSI FOLLOW / UNFOLLOW USER LAIN
 window.toggleFollow = async function(targetUserId, isFollowing) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
@@ -253,9 +264,9 @@ window.openBookFormById = async function(bookId = null) {
   }
 
   modalForm?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-book-form')
 }
 
-// TOGGLE SAKLAR TAMPILKAN / SEMBUNYIKAN BUKU DARI PUBLIK (SOFT HIDE)
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
@@ -271,7 +282,6 @@ window.togglePublishBook = async function(bookId, currentStatus) {
   }
 }
 
-// FUNGSI MEMBUKA EDIT BANNER
 window.openEditBannerForm = async function(bannerId) {
   try {
     const { data: banner } = await supabase.from('banners').select('*').eq('id', bannerId).single()
@@ -441,6 +451,7 @@ window.openBookDetail = async function(bookId) {
       `
     }
     document.getElementById('modal-detail')?.classList.remove('hidden')
+    pushHistoryState('modal', 'modal-detail')
   } catch(e) {
     window.showToast('Gagal membuka detail buku', 'error')
   }
@@ -495,6 +506,7 @@ window.openSocialModal = async function(type) {
 
   if (title) title.innerText = type === 'followers' ? 'Pengikut' : 'Mengikuti'
   modalSocial?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-social')
 
   let query
   if (type === 'followers') {
@@ -537,9 +549,28 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNotifAndSocialModal()
   setupEditProfileModal()
   setupConfirmModalEvents()
+  setupMobileBackNavigation()
 
   initAppData()
 })
+
+// LISTEN TOMBOL BACK HP (HARDWARE / GESTURE BACK)
+function setupMobileBackNavigation() {
+  window.addEventListener('popstate', (e) => {
+    // 1. Cek apakah ada Modal yang lagi kebuka
+    const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)')
+    if (openModals.length > 0) {
+      openModals.forEach(modal => modal.classList.add('hidden'))
+      return
+    }
+
+    // 2. Jika tidak ada Modal, cek apakah lagi di Tab selain Home
+    const activeTab = document.querySelector('.tab-content:not(.hidden)')
+    if (activeTab && activeTab.id !== 'tab-home') {
+      window.switchTab('tab-home', false)
+    }
+  })
+}
 
 async function initAppData() {
   try {
@@ -654,7 +685,10 @@ function setupAuthModal() {
   const formLogin = document.getElementById('form-login')
   const formReg = document.getElementById('form-register')
 
-  btnOpen?.addEventListener('click', () => modalAuth?.classList.remove('hidden'))
+  btnOpen?.addEventListener('click', () => {
+    modalAuth?.classList.remove('hidden')
+    pushHistoryState('modal', 'modal-auth')
+  })
   btnClose?.addEventListener('click', () => modalAuth?.classList.add('hidden'))
 
   tabLogin?.addEventListener('click', () => {
@@ -927,7 +961,6 @@ function setupNavigation() {
   document.getElementById('close-modal-detail')?.addEventListener('click', () => document.getElementById('modal-detail')?.classList.add('hidden'))
   document.getElementById('close-modal-user-profile')?.addEventListener('click', () => document.getElementById('modal-user-profile')?.classList.add('hidden'))
 
-  // TAB SWITCHER DI EXPLORE: CARI BUKU vs CARI USER
   const modeBooksBtn = document.getElementById('explore-mode-books')
   const modeUsersBtn = document.getElementById('explore-mode-users')
   const booksFilterCard = document.getElementById('explore-books-filter')
@@ -982,6 +1015,7 @@ function setupNotifAndSocialModal() {
 
   btnOpenNotif?.addEventListener('click', async () => {
     modalNotif?.classList.remove('hidden')
+    pushHistoryState('modal', 'modal-notif')
     await loadNotifications()
     await markNotificationsRead()
   })
@@ -994,7 +1028,6 @@ function setupNotifAndSocialModal() {
 // 4. DATA FETCHING & RENDERING
 // ==========================================
 
-// BANNER CAROUSEL SENSITIF DENGAN SWIPE & DURATION CONTROL (5 DETIK)
 async function loadBanners() {
   const { data: banners } = await supabase.from('banners').select('*').order('created_at', { ascending: false })
   const slider = document.getElementById('banner-slider')
@@ -1073,7 +1106,6 @@ function resetBannerTimer(total) {
   startBannerTimer(total)
 }
 
-// MEMUAT TAG/GENRE DINAMIS DI MENU EXPLORE
 async function loadExploreTags() {
   const container = document.getElementById('explore-tag-group')
   if (!container) return
@@ -1144,7 +1176,6 @@ async function renderAdminTagList() {
   `).join('')
 }
 
-// CAROUSEL HORIZONTAL REKOMENDASI PENGGUNA DI HOME
 async function loadRecommendedUsersHome() {
   const container = document.getElementById('list-recommended-users-home')
   if (!container) return
@@ -1171,7 +1202,6 @@ async function loadRecommendedUsersHome() {
   `).join('')
 }
 
-// RENDER DAFTAR BANNER DENGAN TOMBOL EDIT & HAPUS
 async function renderAdminBannerList() {
   const container = document.getElementById('banner-admin-list')
   if (!container) return
@@ -1352,6 +1382,7 @@ async function loadProfile() {
     `
     document.getElementById('btn-profile-login')?.addEventListener('click', () => {
       document.getElementById('modal-auth')?.classList.remove('hidden')
+      pushHistoryState('modal', 'modal-auth')
     })
     return
   }
@@ -1444,10 +1475,12 @@ async function loadProfile() {
     document.getElementById('btn-admin-add')?.addEventListener('click', () => openBookFormById(null))
     document.getElementById('btn-admin-banner')?.addEventListener('click', () => {
       document.getElementById('modal-banner-form')?.classList.remove('hidden')
+      pushHistoryState('modal', 'modal-banner-form')
       renderAdminBannerList()
     })
     document.getElementById('btn-admin-tag')?.addEventListener('click', () => {
       document.getElementById('modal-tag-form')?.classList.remove('hidden')
+      pushHistoryState('modal', 'modal-tag-form')
       renderAdminTagList()
     })
     loadAdminBooksList()
