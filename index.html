@@ -50,6 +50,15 @@
         <div id="banner-dots" class="banner-dots"></div>
       </div>
 
+      <!-- SECTION REKOMENDASI TEMAN / MUTUALAN -->
+      <section>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="section-title" style="margin-bottom:2px;">👥 Mutualan Yuk!</h2>
+        </div>
+        <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang sama denganmu.</p>
+        <div id="list-recommended-users-home" class="book-scroll-horizontal hide-scrollbar"></div>
+      </section>
+
       <!-- SECTION HORIZONTAL 1: POPULER -->
       <section>
         <h2 class="section-title">🔥 Karya Populer</h2>
@@ -85,14 +94,21 @@
 
     <!-- TAB 2: EXPLORE -->
     <div id="tab-explore" class="tab-content hidden space-y-4">
-      <h2 class="page-header-title">🔍 Jelajahi Semesta Cerita</h2>
+      <h2 class="page-header-title">🔍 Jelajahi Semesta</h2>
       
-      <div class="search-container">
-        <i class="bi bi-search"></i>
-        <input type="text" id="explore-search" placeholder="Ketik judul, penulis, atau tag..." class="search-input">
+      <!-- MODE SWITCHER: BUKU vs USER -->
+      <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:16px; padding-bottom:8px;">
+        <button id="explore-mode-books" class="auth-tab active" type="button">📚 Cari Karya / Buku</button>
+        <button id="explore-mode-users" class="auth-tab" type="button">👤 Cari Akun Pengguna</button>
       </div>
 
-      <div class="glass-card space-y-3" style="padding:14px;">
+      <div class="search-container">
+        <i class="bi bi-search"></i>
+        <input type="text" id="explore-search" placeholder="Ketik judul, penulis, atau username..." class="search-input">
+      </div>
+
+      <!-- FILTER KHUSUS CARI BUKU -->
+      <div id="explore-books-filter" class="glass-card space-y-3" style="padding:14px;">
         <div>
           <label class="filter-label">TIPE MEDIA</label>
           <div class="filter-group hide-scrollbar">
@@ -119,7 +135,11 @@
         </div>
       </div>
 
+      <!-- CONTAINER HASIL CARI BUKU -->
       <div id="list-explore" class="book-grid-vertical" style="padding-top:8px;"></div>
+
+      <!-- CONTAINER HASIL CARI AKUN/USER -->
+      <div id="list-explore-users" class="space-y-2 hidden" style="padding-top:8px;"></div>
     </div>
 
     <!-- TAB 3: BOOKMARK -->
@@ -134,7 +154,7 @@
       <div id="list-user-recommended" class="book-grid-vertical"></div>
     </div>
 
-    <!-- TAB 5: PROFILE -->
+    <!-- TAB 5: PROFILE ME -->
     <div id="tab-profile" class="tab-content hidden space-y-4">
       <div id="profile-card" class="profile-card-hero"></div>
 
@@ -154,6 +174,17 @@
       </div>
     </div>
   </main>
+
+  <!-- MODAL PROFIL PENGGUNA LAIN (PUBLIC PROFILE) -->
+  <div id="modal-user-profile" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title">👤 Profil Pengguna</span>
+        <button id="close-modal-user-profile" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="public-profile-content" class="space-y-4"></div>
+    </div>
+  </div>
 
   <!-- MODAL EDIT PROFILE -->
   <div id="modal-edit-profile" class="modal-overlay hidden">
