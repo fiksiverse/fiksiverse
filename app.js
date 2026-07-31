@@ -126,12 +126,15 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
-// FUNGSI MEMBUKA PROFIL AKUN LAIN (PUBLIC PROFILE)
+// FUNGSI MEMBUKA PROFIL AKUN LAIN
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
     return
   }
+
+  document.getElementById('modal-social')?.classList.add('hidden')
+  document.getElementById('modal-notif')?.classList.add('hidden')
 
   const modal = document.getElementById('modal-user-profile')
   const container = document.getElementById('public-profile-content')
@@ -146,12 +149,22 @@ window.openUserProfile = async function(userId) {
     if (!profile) return window.showToast('Profil tidak ditemukan', 'error')
 
     let isFollowing = false
+    let isFollowedBy = false
+
     if (currentUser) {
-      const { data: followData } = await supabase.from('follows').select('id')
+      const { data: followData } = await supabase.from('follows')
+        .select('id')
         .eq('follower_id', currentUser.id)
         .eq('following_id', userId)
-        .single()
+        .maybeSingle()
       isFollowing = !!followData
+
+      const { data: followedByData } = await supabase.from('follows')
+        .select('id')
+        .eq('follower_id', userId)
+        .eq('following_id', currentUser.id)
+        .maybeSingle()
+      isFollowedBy = !!followedByData
     }
 
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
@@ -159,6 +172,20 @@ window.openUserProfile = async function(userId) {
     const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
 
     const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
+
+    let followBtnText = 'Ikuti (Follow)'
+    let followBtnIcon = 'bi-person-plus-fill'
+    let followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#6366f1); color:white;'
+
+    if (isFollowing) {
+      followBtnText = 'Mengikuti'
+      followBtnIcon = 'bi-person-check-fill'
+      followBtnStyle = 'background:rgba(255,255,255,0.1); color:#cbd5e1; border:1px solid rgba(255,255,255,0.2);'
+    } else if (isFollowedBy) {
+      followBtnText = 'Ikuti Balik (Follow Back)'
+      followBtnIcon = 'bi-person-plus-fill'
+      followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#38bdf8); color:white;'
+    }
 
     container.innerHTML = `
       <div class="profile-card-hero">
@@ -174,9 +201,9 @@ window.openUserProfile = async function(userId) {
           <p style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.4;">${profile.bio || 'Belum ada bio.'}</p>
 
           <button onclick="toggleFollow('${profile.id}', ${isFollowing})" 
-            style="margin:12px auto 0; padding:8px 20px; border-radius:9999px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; border:none; ${isFollowing ? 'background:rgba(255,255,255,0.1); color:#cbd5e1;' : 'background:linear-gradient(135deg,#a855f7,#6366f1); color:white;'}">
-            <i class="bi bi-person-${isFollowing ? 'check-fill' : 'plus-fill'}"></i>
-            ${isFollowing ? 'Mengikuti' : 'Ikuti (Follow)'}
+            style="margin:12px auto 0; padding:8px 20px; border-radius:9999px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; border:none; ${followBtnStyle}">
+            <i class="bi ${followBtnIcon}"></i>
+            ${followBtnText}
           </button>
 
           <div class="profile-stats-grid" style="grid-template-columns: 1fr 1fr; max-width: 220px; margin: 16px auto 0;">
@@ -242,7 +269,7 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
-// BUKA FORM TAMBAH / USULKAN BUKU (ADMIN BISA LANGSUNG PUBLISH, USER MASUK PENDING)
+// BUKA FORM TAMBAH / USULKAN BUKU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan buku!', 'error')
 
@@ -313,6 +340,7 @@ window.togglePublishBook = async function(bookId, currentStatus) {
     loadAdminBooksList()
     loadHomeBooks()
     loadExploreBooks()
+    loadProfile()
   } catch (err) {
     window.showToast('Gagal ubah status publikasi: ' + err.message, 'error')
   }
@@ -567,14 +595,15 @@ window.openSocialModal = async function(type) {
 
   if (container) {
     container.innerHTML = list.map(item => `
-      <div class="user-item" onclick="openUserProfile('${item.user?.id}')" style="cursor:pointer;">
+      <div class="user-item" onclick="openUserProfile('${item.user?.id}')" style="cursor:pointer; padding:8px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); margin-bottom:6px;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <img src="${item.user?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.user?.id}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+          <img src="${item.user?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.user?.id}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
           <div>
             <h4 style="font-size:12px; font-weight:700; color:#f8fafc;">${item.user?.full_name || 'User'}</h4>
-            <p style="font-size:10px; color:#94a3b8;">@${item.user?.username || 'user'}</p>
+            <p style="font-size:10px; color:#38bdf8;">@${item.user?.username || 'user'}</p>
           </div>
         </div>
+        <i class="bi bi-chevron-right" style="color:#c084fc; font-size:12px;"></i>
       </div>
     `).join('')
   }
@@ -902,7 +931,7 @@ function setupBookFormModal() {
     if (bulkInput) bulkInput.value = JSON.stringify(template, null, 2)
   })
 
-  // HANDLER SIMPAN BUKU (LOGIKA CROWDSOURCING USER VS ADMIN)
+  // HANDLER SIMPAN BUKU (DENGAN PENCATATAN USER_ID PENGUSUL)
   formBook?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const id = document.getElementById('book-id').value
@@ -925,7 +954,8 @@ function setupBookFormModal() {
       preview_images: previewImagesArr,
       read_link: document.getElementById('book-read-link').value || null,
       buy_link: document.getElementById('book-buy-link').value || null,
-      synopsis: document.getElementById('book-synopsis').value
+      synopsis: document.getElementById('book-synopsis').value,
+      user_id: currentUser?.id || null // Catat ID pengusul
     }
 
     try {
@@ -934,7 +964,6 @@ function setupBookFormModal() {
         if (error) throw error
         window.showToast(isAdmin ? 'Buku berhasil diperbarui!' : 'Usulan buku berhasil diubah!')
       } else {
-        // JIKA ADMIN: LANGSUNG PUBLISH. JIKA USER BIASA: MASUK PENDING (is_published = false)
         payload.is_published = isAdmin ? true : false
         const { error } = await supabase.from('books').insert(payload)
         if (error) throw error
@@ -988,7 +1017,8 @@ function setupBookFormModal() {
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
           buy_link: b.buy_link || null,
-          preview_images: Array.isArray(b.preview_images) ? b.preview_images : []
+          preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
+          user_id: currentUser?.id || null
         }
       })
 
@@ -1317,12 +1347,10 @@ async function loadExploreBooks() {
 
   const { data: books } = await query.order('created_at', { ascending: false })
   
-  // TAMBAH BANNER TOMBOL USULKAN BUKU DI HEADER EXPLORE BUKU
   const listExplore = document.getElementById('list-explore')
   if (listExplore) {
     renderBookVertical('list-explore', books)
     
-    // SISIPKAN CARDS / PROMPT DI ATAS GRID BUKU EXPLORE
     const suggestPromptHTML = `
       <div style="grid-column: span 2; background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(56,189,248,0.15)); border: 1px dashed rgba(168,85,247,0.4); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
         <div>
@@ -1470,6 +1498,18 @@ async function loadProfile() {
   const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', currentUser.id)
   const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', currentUser.id)
 
+  // AMBIL BUKU-BUKU YANG PERNAH DIUSULKAN OLEH USER INI
+  const { data: userSubmissions } = await supabase.from('books')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false })
+
+  let pendingCount = 0
+  if (isAdmin) {
+    const { count } = await supabase.from('books').select('*', { count: 'exact', head: true }).eq('is_published', false)
+    pendingCount = count || 0
+  }
+
   tabProfile.innerHTML = `
     <div class="profile-card-hero">
       <div class="profile-bg-banner"></div>
@@ -1491,9 +1531,15 @@ async function loadProfile() {
             <i class="bi bi-pencil-square"></i> Edit Profil
           </button>
           
-          <button onclick="openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
-            <i class="bi bi-plus-circle"></i> Usulkan Buku
-          </button>
+          ${isAdmin ? `
+            <button onclick="document.getElementById('admin-pending-section')?.scrollIntoView({ behavior: 'smooth' })" style="padding:6px 14px; background:linear-gradient(135deg,#f59e0b,#d97706); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+              <i class="bi bi-inbox-fill"></i> Permintaan Usulan ${pendingCount > 0 ? `(${pendingCount})` : ''}
+            </button>
+          ` : `
+            <button onclick="openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+              <i class="bi bi-plus-circle"></i> Usulkan Buku
+            </button>
+          `}
         </div>
 
         <div class="profile-stats-grid">
@@ -1515,6 +1561,39 @@ async function loadProfile() {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- CARD STATUS USULAN BUKU SAYA (USER & ADMIN) -->
+    <div class="glass-card space-y-3" style="padding:14px;">
+      <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
+        📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
+      </h4>
+
+      ${!userSubmissions || userSubmissions.length === 0 ? `
+        <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah mengusulkan buku.</p>
+      ` : `
+        <div class="space-y-2">
+          ${userSubmissions.map(b => {
+            const isAcc = b.is_published !== false
+            return `
+              <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+                <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
+                  <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                  <div style="overflow:hidden;">
+                    <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
+                    <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+                  </div>
+                </div>
+                <div style="margin-left:8px; flex-shrink:0;">
+                  <span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; ${isAcc ? 'background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);' : 'background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);'}">
+                    ${isAcc ? '✅ Disetujui' : '⏳ Pending'}
+                  </span>
+                </div>
+              </div>
+            `
+          }).join('')}
+        </div>
+      `}
     </div>
 
     ${isAdmin ? `
@@ -1568,7 +1647,6 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// MEMUAT BUKU ADMIN (DIPISAH: MENUNGGU PERSETUJUAN VS SUDAH TERBIT)
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1584,8 +1662,7 @@ async function loadAdminBooksList() {
   const publishedBooks = books.filter(b => b.is_published !== false)
 
   container.innerHTML = `
-    <!-- SEKSI PERSETUJUAN BUKU USER (PENDING) -->
-    <div>
+    <div id="admin-pending-section">
       <h5 style="font-size:12px; font-weight:800; color:#fbbf24; margin-bottom:6px;">
         ⏳ Menunggu Persetujuan (${pendingBooks.length})
       </h5>
@@ -1616,7 +1693,6 @@ async function loadAdminBooksList() {
       </div>
     </div>
 
-    <!-- SEKSI BUKU TERBIT -->
     <div style="padding-top:10px;">
       <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:6px;">📚 Buku Terbit (${publishedBooks.length})</h5>
       <div class="space-y-2">
@@ -1649,35 +1725,48 @@ async function loadAdminBooksList() {
 
 async function checkUnreadNotifications() {
   if (!currentUser) return
-  const { count } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id).eq('is_read', false)
-  const badgeDot = document.getElementById('notif-badge-dot')
-  if (count && count > 0) badgeDot?.classList.remove('hidden')
-  else badgeDot?.classList.add('hidden')
+  try {
+    const { count, error } = await supabase.from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id)
+      .eq('is_read', false)
+
+    const badgeDot = document.getElementById('notif-badge-dot')
+    if (!error && count && count > 0) badgeDot?.classList.remove('hidden')
+    else badgeDot?.classList.add('hidden')
+  } catch(e) {
+    console.log('Error notif check:', e)
+  }
 }
 
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
-  if (!container) return
-  const { data: notifs } = await supabase.from('notifications')
-    .select('*, actor:profiles!notifications_actor_id_fkey(*), book:books(*)')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false })
+  if (!container || !currentUser) return
 
-  if (!notifs || notifs.length === 0) {
-    container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">Belum ada notifikasi.</p>`
-    return
-  }
+  try {
+    const { data: notifs, error } = await supabase.from('notifications')
+      .select('*, actor:profiles!actor_id(*), book:books!book_id(*)')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
 
-  container.innerHTML = notifs.map(n => `
-    <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
-      <img src="${n.actor?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
-      <div class="notif-text">
-        <b>${n.actor?.full_name || 'Seseorang'}</b> 
-        ${n.type === 'follow' ? 'mulai mengikuti kamu.' : `merekomendasikan buku <b>${n.book?.title || ''}</b>.`}
-        <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
+    if (error || !notifs || notifs.length === 0) {
+      container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">Belum ada notifikasi.</p>`
+      return
+    }
+
+    container.innerHTML = notifs.map(n => `
+      <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
+        <img src="${n.actor?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
+        <div class="notif-text">
+          <b>${n.actor?.full_name || 'Seseorang'}</b> 
+          ${n.type === 'follow' ? 'mulai mengikuti kamu.' : `merekomendasikan buku <b>${n.book?.title || ''}</b>.`}
+          <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
+        </div>
       </div>
-    </div>
-  `).join('')
+    `).join('')
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">Belum ada notifikasi.</p>`
+  }
 }
 
 async function markNotificationsRead() {
