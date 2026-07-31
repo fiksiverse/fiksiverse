@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiksiVerse - Semesta Bacaan Tanpa Batas</title>
 
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Temukan, simpan ke bookmark, dan rekomendasikan novel, komik, dan AU favoritmu di FiksiVerse. Tempat kumpulnya para pembaca cerita!">
+  <meta name="keywords" content="fiksiverse, rekomendasi novel, baca komik, twitter au, fanfiction, bookmark novel">
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -55,7 +59,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h2 class="section-title" style="margin-bottom:2px;">👥 Mutualan Yuk!</h2>
         </div>
-        <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang mirip sama kamu.</p>
+        <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang denganmu.</p>
         <div id="list-recommended-users-home" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
@@ -87,6 +91,14 @@
         <div class="footer-badges">
           <span>Novel</span> • <span>Komik</span> • <span>Sosmed AU</span>
         </div>
+
+        <!-- TOMBOL FAQ / PANDUAN -->
+        <div style="display: flex; justify-content: center; gap: 12px; padding-top: 4px;">
+          <button type="button" onclick="document.getElementById('modal-faq').classList.remove('hidden')" style="background: rgba(168,85,247,0.15); color: #e9d5ff; border: 1px solid rgba(168,85,247,0.3); padding: 5px 14px; border-radius: 9999px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <i class="bi bi-question-circle-fill" style="color: #c084fc;"></i> FAQ & Panduan Web
+          </button>
+        </div>
+
         <p class="footer-copyright">Merekomendasikan bacaan & Melaporkan masalah | Hubungi: fiksiverse@gmail.com</p>
         <p class="footer-copyright">© 2026 FiksiVerse.</p>
       </footer>
@@ -259,12 +271,24 @@
     </div>
   </div>
 
-  <!-- MODAL FORM BUKU (ADMIN) -->
+  <!-- MODAL FORM BUKU / USULAN (USER & ADMIN) -->
   <div id="modal-book-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
       <div class="modal-header">
         <span id="book-form-title" class="modal-title">Tambah Buku Baru</span>
         <button id="close-modal-book-form" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <!-- BOX KETENTUAN USULAN BUKU -->
+      <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 10px 12px;">
+        <h5 style="font-size: 11px; font-weight: 800; color: #c084fc; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+          📌 Ketentuan Usulan Buku
+        </h5>
+        <ul style="font-size: 10px; color: #cbd5e1; padding-left: 14px; margin: 0; line-height: 1.5;">
+          <li>Pastikan Judul, Penulis, dan URL Cover diisi dengan benar & tajam.</li>
+          <li>Usulan kamu akan ditinjau Admin sebelum tayang di feed publik (ACC 1x24 jam).</li>
+          <li>Dilarang mengusulkan cerita berbau SARA, spam, atau promosi ilegal.</li>
+        </ul>
       </div>
 
       <!-- TAB SELEKSI: SATU BUKU / BANYAK BUKU -->
@@ -332,7 +356,7 @@
           <label>Sinopsis</label>
           <textarea id="book-synopsis" rows="3" placeholder="Ringkasan cerita..." class="form-input" style="resize:none;"></textarea>
         </div>
-        <button type="submit" class="btn-full btn-galaxy-primary">Simpan Buku</button>
+        <button type="submit" class="btn-full btn-galaxy-primary">Simpan / Usulkan Buku</button>
       </form>
 
       <!-- FORM 2: BANYAK BUKU (BULK IMPORT) -->
@@ -410,6 +434,48 @@
       <div>
         <h4 style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:8px;">Daftar Tag Kustom</h4>
         <div id="tag-admin-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FAQ & PANDUAN WEB -->
+  <div id="modal-faq" class="modal-overlay hidden">
+    <div class="modal-box space-y-4" style="max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <span class="modal-title" style="color: #c084fc;">❓ FAQ & Panduan FiksiVerse</span>
+        <button id="close-modal-faq" class="modal-close" onclick="document.getElementById('modal-faq').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🌌 Apa itu FiksiVerse?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">FiksiVerse adalah platform komunitas untuk menemukan, merekomendasikan, dan menyimpan daftar bacaan favoritmu, mulai dari Novel, Komik, hingga Social Media AU (Alternate Universe).</p>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🚀 Bagaimana cara mengusulkan buku/AU baru?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Kamu tinggal klik tombol <b>"+ Usulkan"</b> di tab <i>Explore</i> atau halaman <i>Profil</i>. Isi data ceritanya, lalu submit. Usulanmu akan diverifikasi Admin sebelum tampil di feed publik.</p>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">⏳ Berapa lama proses ACC usulan buku?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Biasanya dalam kurun waktu <b>1x24 jam</b>. Begitu disetujui, bukumu langsung bisa dicari, di-bookmark, dan direkomendasikan pembaca lain!</p>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">📋 Apa saja syarat pengajuan karya?</h4>
+          <ul style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0; padding-left: 16px;">
+            <li>Wajib sudah login/terdaftar di FiksiVerse.</li>
+            <li>Isi nama penulis & judul sesuai karya asli.</li>
+            <li>Gunakan URL gambar cover yang jelas & tajam.</li>
+            <li>Bebas konten SARA, spam, dan iklan di luar konteks cerita.</li>
+          </ul>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🔗 Bagaimana cara membagikan link buku?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Buka detail buku mana saja, lalu klik tombol <b>"Bagikan"</b>. Link akan otomatis tersalin. Saat orang lain mengklik link tersebut, halaman detail buku akan otomatis terbuka!</p>
+        </div>
       </div>
     </div>
   </div>

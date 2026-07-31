@@ -242,7 +242,11 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
+// BUKA FORM TAMBAH / USULKAN BUKU (ADMIN BISA LANGSUNG PUBLISH, USER MASUK PENDING)
 window.openBookFormById = async function(bookId = null) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan buku!', 'error')
+
+  const isAdmin = currentUser.profile?.role === 'admin'
   const modalForm = document.getElementById('modal-book-form')
   const titleEl = document.getElementById('book-form-title')
   const tabsEl = document.getElementById('book-form-tabs')
@@ -262,7 +266,7 @@ window.openBookFormById = async function(bookId = null) {
       const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
       if (!book) return
 
-      if (titleEl) titleEl.innerText = 'Edit Buku'
+      if (titleEl) titleEl.innerText = isAdmin ? 'Edit Buku' : 'Edit Usulan Buku'
       if (tabsEl) tabsEl.style.display = 'none'
 
       document.getElementById('book-id').value = book.id
@@ -287,8 +291,8 @@ window.openBookFormById = async function(bookId = null) {
       window.showToast('Gagal memuat data buku', 'error')
     }
   } else {
-    if (titleEl) titleEl.innerText = 'Tambah Buku Baru'
-    if (tabsEl) tabsEl.style.display = 'flex'
+    if (titleEl) titleEl.innerText = isAdmin ? 'Tambah Buku Baru' : 'Usulkan Buku Baru 🚀'
+    if (tabsEl) tabsEl.style.display = isAdmin ? 'flex' : 'none'
     document.getElementById('form-book')?.reset()
     const bId = document.getElementById('book-id')
     if (bId) bId.value = ''
@@ -298,13 +302,14 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
+// TOGGLE PUBLISH BUKU
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
     const { error } = await supabase.from('books').update({ is_published: nextStatus }).eq('id', bookId)
     if (error) throw error
 
-    window.showToast(nextStatus ? 'Buku ditampilkan ke publik!' : 'Buku tersembunyi dari publik (Draft)')
+    window.showToast(nextStatus ? 'Buku disetujui & terbit ke publik! 🎉' : 'Buku disimpan ke Draft.')
     loadAdminBooksList()
     loadHomeBooks()
     loadExploreBooks()
@@ -592,7 +597,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initAppData()
 })
 
-// LISTEN TOMBOL BACK HP (HARDWARE / GESTURE BACK)
 function setupMobileBackNavigation() {
   window.addEventListener('popstate', (e) => {
     const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)')
@@ -635,7 +639,6 @@ async function initAppData() {
     if (recList) recList.innerHTML = `<p style="font-size:12px; color:#94a3b8; grid-column: span 2; text-align:center; padding:16px 0;">Silakan login untuk melihat daftar rekomendasimu.</p>`
   }
 
-  // OTOMATIS BUKA MODAL DETAIL JIKA LINK DIBAGIKAN (?book=ID)
   const urlParams = new URLSearchParams(window.location.search)
   const sharedBookId = urlParams.get('book')
   if (sharedBookId) {
@@ -899,9 +902,11 @@ function setupBookFormModal() {
     if (bulkInput) bulkInput.value = JSON.stringify(template, null, 2)
   })
 
+  // HANDLER SIMPAN BUKU (LOGIKA CROWDSOURCING USER VS ADMIN)
   formBook?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const id = document.getElementById('book-id').value
+    const isAdmin = currentUser?.profile?.role === 'admin'
     
     const p1 = document.getElementById('preview-img-1')?.value.trim() || ''
     const p2 = document.getElementById('preview-img-2')?.value.trim() || ''
@@ -927,17 +932,25 @@ function setupBookFormModal() {
       if (id) {
         const { error } = await supabase.from('books').update(payload).eq('id', id)
         if (error) throw error
-        window.showToast('Buku berhasil diperbarui!')
+        window.showToast(isAdmin ? 'Buku berhasil diperbarui!' : 'Usulan buku berhasil diubah!')
       } else {
-        payload.is_published = true
+        // JIKA ADMIN: LANGSUNG PUBLISH. JIKA USER BIASA: MASUK PENDING (is_published = false)
+        payload.is_published = isAdmin ? true : false
         const { error } = await supabase.from('books').insert(payload)
         if (error) throw error
-        window.showToast('Buku baru berhasil ditambahkan!')
+
+        if (isAdmin) {
+          window.showToast('Buku baru berhasil ditambahkan & terbit!')
+        } else {
+          window.showToast('Buku berhasil diusulkan! Menunggu persetujuan Admin 🚀')
+        }
       }
 
       modalForm?.classList.add('hidden')
       document.getElementById('modal-detail')?.classList.add('hidden')
       formBook.reset()
+      
+      if (isAdmin) loadAdminBooksList()
       loadHomeBooks()
       loadExploreBooks()
       loadProfile()
@@ -1303,7 +1316,26 @@ async function loadExploreBooks() {
   }
 
   const { data: books } = await query.order('created_at', { ascending: false })
-  renderBookVertical('list-explore', books)
+  
+  // TAMBAH BANNER TOMBOL USULKAN BUKU DI HEADER EXPLORE BUKU
+  const listExplore = document.getElementById('list-explore')
+  if (listExplore) {
+    renderBookVertical('list-explore', books)
+    
+    // SISIPKAN CARDS / PROMPT DI ATAS GRID BUKU EXPLORE
+    const suggestPromptHTML = `
+      <div style="grid-column: span 2; background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(56,189,248,0.15)); border: 1px dashed rgba(168,85,247,0.4); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+        <div>
+          <h5 style="font-size:12px; font-weight:800; color:#f8fafc;">Gak nemu novel/komik favoritmu?</h5>
+          <p style="font-size:10px; color:#cbd5e1;">Usulkan ke semesta FiksiVerse biar dibaca yang lain!</p>
+        </div>
+        <button onclick="openBookFormById(null)" style="padding:7px 12px; background:linear-gradient(135deg,#a855f7,#38bdf8); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0;">
+          + Usulkan
+        </button>
+      </div>
+    `
+    listExplore.insertAdjacentHTML('afterbegin', suggestPromptHTML)
+  }
 }
 
 async function loadExploreUsers() {
@@ -1454,9 +1486,15 @@ async function loadProfile() {
           ${p?.bio || 'Belum ada bio.'}
         </p>
 
-        <button onclick="openEditProfileModal()" style="margin:12px auto 0; padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
-          <i class="bi bi-pencil-square"></i> Edit Profil
-        </button>
+        <div style="display:flex; justify-content:center; gap:8px; margin-top:12px;">
+          <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-pencil-square"></i> Edit Profil
+          </button>
+          
+          <button onclick="openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-plus-circle"></i> Usulkan Buku
+          </button>
+        </div>
 
         <div class="profile-stats-grid">
           <div class="stat-card" onclick="switchTab('tab-bookmark')">
@@ -1501,8 +1539,7 @@ async function loadProfile() {
         </div>
 
         <div style="padding-top:8px;">
-          <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:8px;">📚 Buku yang Ada di Semesta</h5>
-          <div id="admin-books-list" class="space-y-2"></div>
+          <div id="admin-books-list" class="space-y-3"></div>
         </div>
       </div>
     ` : ''}
@@ -1531,6 +1568,7 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
+// MEMUAT BUKU ADMIN (DIPISAH: MENUNGGU PERSETUJUAN VS SUDAH TERBIT)
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1538,38 +1576,75 @@ async function loadAdminBooksList() {
   const { data: books } = await supabase.from('books').select('*').order('created_at', { ascending: false })
 
   if (!books || books.length === 0) {
-    container.innerHTML = `<p style="font-size:11px; color:#94a3b8;">Belum ada buku yang ditambahkan.</p>`
+    container.innerHTML = `<p style="font-size:11px; color:#94a3b8;">Belum ada buku di database.</p>`
     return
   }
 
-  container.innerHTML = books.map(b => {
-    const isPub = b.is_published !== false
-    return `
-      <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
-        <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-          <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-          <div style="overflow:hidden;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-              <span class="${isPub ? 'badge-published' : 'badge-draft'}">${isPub ? 'Publik' : 'Draft'}</span>
+  const pendingBooks = books.filter(b => b.is_published === false)
+  const publishedBooks = books.filter(b => b.is_published !== false)
+
+  container.innerHTML = `
+    <!-- SEKSI PERSETUJUAN BUKU USER (PENDING) -->
+    <div>
+      <h5 style="font-size:12px; font-weight:800; color:#fbbf24; margin-bottom:6px;">
+        ⏳ Menunggu Persetujuan (${pendingBooks.length})
+      </h5>
+      ${pendingBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Tidak ada antrean usulan buku.</p>` : ''}
+      <div class="space-y-2">
+        ${pendingBooks.map(b => `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
+            <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
+              <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+              <div style="overflow:hidden;">
+                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
+                <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+              </div>
             </div>
-            <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span> ${b.platform ? `• <span style="color:#38bdf8;">${b.platform}</span>` : ''}</p>
+            <div style="display:flex; gap:4px; margin-left:8px;">
+              <button onclick="togglePublishBook('${b.id}', false)" title="Setujui & Terbit" style="background:#34d399; color:#064e3b; border:none; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;">
+                ✅ Setujui
+              </button>
+              <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                ✏️
+              </button>
+              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                🗑️
+              </button>
+            </div>
           </div>
-        </div>
-        <div style="display:flex; gap:4px; margin-left:8px;">
-          <button onclick="togglePublishBook('${b.id}', ${isPub})" title="${isPub ? 'Sembunyikan' : 'Tampilkan'}" style="background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-            ${isPub ? '👁️' : '🙈'}
-          </button>
-          <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-            ✏️
-          </button>
-          <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-            🗑️
-          </button>
-        </div>
+        `).join('')}
       </div>
-    `
-  }).join('')
+    </div>
+
+    <!-- SEKSI BUKU TERBIT -->
+    <div style="padding-top:10px;">
+      <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:6px;">📚 Buku Terbit (${publishedBooks.length})</h5>
+      <div class="space-y-2">
+        ${publishedBooks.map(b => `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+            <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
+              <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+              <div style="overflow:hidden;">
+                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
+                <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+              </div>
+            </div>
+            <div style="display:flex; gap:4px; margin-left:8px;">
+              <button onclick="togglePublishBook('${b.id}', true)" title="Sembunyikan ke Draft" style="background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                👁️
+              </button>
+              <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                ✏️
+              </button>
+              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
 }
 
 async function checkUnreadNotifications() {
