@@ -42,6 +42,37 @@ window.showToast = function(message, type = 'success') {
   setTimeout(() => toast?.classList.remove('show'), 3000)
 }
 
+// FUNGSI BAGIKAN & SALIN LINK BUKU
+window.shareBook = function(bookId) {
+  const shareUrl = `${window.location.origin}${window.location.pathname}?book=${bookId}`
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      window.showToast('Link buku berhasil disalin! 📋')
+    }).catch(() => {
+      fallbackCopyText(shareUrl)
+    })
+  } else {
+    fallbackCopyText(shareUrl)
+  }
+}
+
+function fallbackCopyText(text) {
+  const textArea = document.createElement("textarea")
+  textArea.value = text
+  textArea.style.position = "fixed"
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+  try {
+    document.execCommand('copy')
+    window.showToast('Link buku berhasil disalin! 📋')
+  } catch (err) {
+    window.showToast('Gagal menyalin link', 'error')
+  }
+  document.body.removeChild(textArea)
+}
+
 window.showConfirmModal = function(title, message, callback) {
   const modal = document.getElementById('modal-confirm')
   const titleEl = document.getElementById('confirm-title')
@@ -425,17 +456,24 @@ window.openBookDetail = async function(bookId) {
           </div>
         ` : ''}
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding-top:8px;">
+        <!-- TOMBOL INTERAKSI (BOOKMARK, REKOMENDASI, BAGIKAN) -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding-top:8px;">
           <button onclick="toggleBookmark('${book.id}', ${isBookmarked})" 
-            style="padding:10px; border-radius:12px; font-size:12px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
             <i class="bi bi-bookmark${isBookmarked ? '-check-fill' : ''}" style="${isBookmarked ? 'color:#f87171' : ''}"></i>
-            ${isBookmarked ? 'Tersimpan' : 'Bookmark'}
+            ${isBookmarked ? 'Simpan' : 'Bookmark'}
           </button>
           
           <button onclick="toggleRecommendation('${book.id}', ${isRecommended})" 
-            style="padding:10px; border-radius:12px; font-size:12px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
             <i class="bi bi-star${isRecommended ? '-fill' : ''}" style="${isRecommended ? 'color:#fbbf24' : ''}"></i>
-            ${isRecommended ? 'Direkomendasikan' : 'Rekomendasikan'}
+            ${isRecommended ? 'Suka' : 'Rekomendasi'}
+          </button>
+
+          <button onclick="shareBook('${book.id}')" 
+            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid rgba(168,85,247,0.3); background:rgba(168,85,247,0.15); color:#e9d5ff; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+            <i class="bi bi-share-fill" style="color:#c084fc;"></i>
+            Bagikan
           </button>
         </div>
 
@@ -557,14 +595,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // LISTEN TOMBOL BACK HP (HARDWARE / GESTURE BACK)
 function setupMobileBackNavigation() {
   window.addEventListener('popstate', (e) => {
-    // 1. Cek apakah ada Modal yang lagi kebuka
     const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)')
     if (openModals.length > 0) {
       openModals.forEach(modal => modal.classList.add('hidden'))
       return
     }
 
-    // 2. Jika tidak ada Modal, cek apakah lagi di Tab selain Home
     const activeTab = document.querySelector('.tab-content:not(.hidden)')
     if (activeTab && activeTab.id !== 'tab-home') {
       window.switchTab('tab-home', false)
@@ -597,6 +633,13 @@ async function initAppData() {
     const recList = document.getElementById('list-user-recommended')
     if (bmList) bmList.innerHTML = `<p style="font-size:12px; color:#94a3b8; grid-column: span 2; text-align:center; padding:16px 0;">Silakan login untuk melihat simpanan bookmark kamu.</p>`
     if (recList) recList.innerHTML = `<p style="font-size:12px; color:#94a3b8; grid-column: span 2; text-align:center; padding:16px 0;">Silakan login untuk melihat daftar rekomendasimu.</p>`
+  }
+
+  // OTOMATIS BUKA MODAL DETAIL JIKA LINK DIBAGIKAN (?book=ID)
+  const urlParams = new URLSearchParams(window.location.search)
+  const sharedBookId = urlParams.get('book')
+  if (sharedBookId) {
+    window.openBookDetail(sharedBookId)
   }
 }
 
