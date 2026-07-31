@@ -123,7 +123,7 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
-// MEMBUKA PROFIL USER LAIN DENGAN PENGECEKAN FOLLOW DUA ARAH
+// BUKA PROFIL AKUN LAIN
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -151,7 +151,7 @@ window.openUserProfile = async function(userId) {
     if (currentUser) {
       // 1. Cek apakah saya mengikuti user ini
       const { data: followData } = await supabase.from('follows')
-        .select('id')
+        .select('follower_id')
         .eq('follower_id', currentUser.id)
         .eq('following_id', userId)
       
@@ -159,7 +159,7 @@ window.openUserProfile = async function(userId) {
 
       // 2. Cek apakah user ini mengikuti saya
       const { data: followedByData } = await supabase.from('follows')
-        .select('id')
+        .select('follower_id')
         .eq('follower_id', userId)
         .eq('following_id', currentUser.id)
 
@@ -172,6 +172,7 @@ window.openUserProfile = async function(userId) {
 
     const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
+    // STYLING TOMBOL FOLLOW
     let followBtnText = 'Ikuti (Follow)'
     let followBtnIcon = 'bi-person-plus-fill'
     let followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#6366f1); color:white;'
@@ -248,14 +249,19 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
 
   try {
     if (isFollowing) {
-      const { error } = await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', targetUserId)
+      const { error } = await supabase.from('follows')
+        .delete()
+        .eq('follower_id', currentUser.id)
+        .eq('following_id', targetUserId)
+
       if (error) throw error
       window.showToast('Berhenti mengikuti.')
     } else {
-      const { error } = await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: targetUserId })
+      const { error } = await supabase.from('follows')
+        .insert({ follower_id: currentUser.id, following_id: targetUserId })
+
       if (error) throw error
       
-      // Kirim Notifikasi secara aman (isolasi error agar tidak menggagalkan aksi follow)
       try {
         await supabase.from('notifications').insert({
           user_id: targetUserId,
@@ -574,6 +580,7 @@ window.toggleRecommendation = async function(bookId, isRecommended) {
   }
 }
 
+// BUKA MODAL FOLLOWERS / FOLLOWING DENGAN RELASI BARU
 window.openSocialModal = async function(type) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
   const modalSocial = document.getElementById('modal-social')
@@ -1566,7 +1573,7 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD STATUS USULAN BUKU SAYA (USER & ADMIN) -->
+    <!-- CARD STATUS USULAN BUKU SAYA -->
     <div class="glass-card space-y-3" style="padding:14px;">
       <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
         📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
@@ -1742,13 +1749,14 @@ async function checkUnreadNotifications() {
   }
 }
 
+// BUKA LIST NOTIFIKASI DENGAN RELASI BARU
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
 
   try {
     const { data: notifs, error } = await supabase.from('notifications')
-      .select('*, actor:profiles!actor_id(*), book:books!book_id(*)')
+      .select('*, actor:profiles!notifications_actor_id_fkey(*), book:books(*)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
 
