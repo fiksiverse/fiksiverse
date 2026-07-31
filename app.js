@@ -10,10 +10,8 @@ let touchStartX = 0
 let touchEndX = 0
 let onConfirmCallback = null
 
-// Mode pencarian di Tab Explore: 'books' atau 'users'
 let exploreSearchMode = 'books'
 
-// HELPER UNTUK MENCEGAH TOMBOL BACK HP KELUAR DARI WEB
 function pushHistoryState(type, id = null) {
   history.pushState({ type, id, timestamp: Date.now() }, '')
 }
@@ -42,7 +40,6 @@ window.showToast = function(message, type = 'success') {
   setTimeout(() => toast?.classList.remove('show'), 3000)
 }
 
-// FUNGSI BAGIKAN & SALIN LINK BUKU
 window.shareBook = function(bookId) {
   const shareUrl = `${window.location.origin}${window.location.pathname}?book=${bookId}`
 
@@ -126,7 +123,7 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
-// FUNGSI MEMBUKA PROFIL AKUN LAIN
+// MEMBUKA PROFIL USER LAIN DENGAN PENGECEKAN FOLLOW DUA ARAH
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -152,19 +149,21 @@ window.openUserProfile = async function(userId) {
     let isFollowedBy = false
 
     if (currentUser) {
+      // 1. Cek apakah saya mengikuti user ini
       const { data: followData } = await supabase.from('follows')
         .select('id')
         .eq('follower_id', currentUser.id)
         .eq('following_id', userId)
-        .maybeSingle()
-      isFollowing = !!followData
+      
+      isFollowing = followData && followData.length > 0
 
+      // 2. Cek apakah user ini mengikuti saya
       const { data: followedByData } = await supabase.from('follows')
         .select('id')
         .eq('follower_id', userId)
         .eq('following_id', currentUser.id)
-        .maybeSingle()
-      isFollowedBy = !!followedByData
+
+      isFollowedBy = followedByData && followedByData.length > 0
     }
 
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
@@ -249,19 +248,28 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
 
   try {
     if (isFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', targetUserId)
+      const { error } = await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', targetUserId)
+      if (error) throw error
       window.showToast('Berhenti mengikuti.')
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: targetUserId })
-      await supabase.from('notifications').insert({
-        user_id: targetUserId,
-        actor_id: currentUser.id,
-        type: 'follow'
-      })
+      const { error } = await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: targetUserId })
+      if (error) throw error
+      
+      // Kirim Notifikasi secara aman (isolasi error agar tidak menggagalkan aksi follow)
+      try {
+        await supabase.from('notifications').insert({
+          user_id: targetUserId,
+          actor_id: currentUser.id,
+          type: 'follow'
+        })
+      } catch (notifErr) {
+        console.error('Notif insert error:', notifErr)
+      }
+
       window.showToast('Berhasil mengikuti!')
     }
 
-    window.openUserProfile(targetUserId)
+    await window.openUserProfile(targetUserId)
     loadProfile()
     loadRecommendedUsersHome()
   } catch (err) {
@@ -269,7 +277,6 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
-// BUKA FORM TAMBAH / USULKAN BUKU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan buku!', 'error')
 
@@ -329,7 +336,6 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
-// TOGGLE PUBLISH BUKU
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
@@ -435,11 +441,11 @@ window.openBookDetail = async function(bookId) {
     let isRecommended = false
 
     if (currentUser) {
-      const { data: bm } = await supabase.from('bookmarks').select('id').eq('user_id', currentUser.id).eq('book_id', bookId).single()
-      isBookmarked = !!bm
+      const { data: bm } = await supabase.from('bookmarks').select('id').eq('user_id', currentUser.id).eq('book_id', bookId)
+      isBookmarked = bm && bm.length > 0
 
-      const { data: rec } = await supabase.from('recommendations').select('id').eq('user_id', currentUser.id).eq('book_id', bookId).single()
-      isRecommended = !!rec
+      const { data: rec } = await supabase.from('recommendations').select('id').eq('user_id', currentUser.id).eq('book_id', bookId)
+      isRecommended = rec && rec.length > 0
     }
 
     const isAdmin = currentUser?.profile?.role === 'admin'
@@ -489,7 +495,6 @@ window.openBookDetail = async function(bookId) {
           </div>
         ` : ''}
 
-        <!-- TOMBOL INTERAKSI (BOOKMARK, REKOMENDASI, BAGIKAN) -->
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding-top:8px;">
           <button onclick="toggleBookmark('${book.id}', ${isBookmarked})" 
             style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
@@ -931,7 +936,6 @@ function setupBookFormModal() {
     if (bulkInput) bulkInput.value = JSON.stringify(template, null, 2)
   })
 
-  // HANDLER SIMPAN BUKU (DENGAN PENCATATAN USER_ID PENGUSUL)
   formBook?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const id = document.getElementById('book-id').value
@@ -955,7 +959,7 @@ function setupBookFormModal() {
       read_link: document.getElementById('book-read-link').value || null,
       buy_link: document.getElementById('book-buy-link').value || null,
       synopsis: document.getElementById('book-synopsis').value,
-      user_id: currentUser?.id || null // Catat ID pengusul
+      user_id: currentUser?.id || null
     }
 
     try {
@@ -1498,7 +1502,6 @@ async function loadProfile() {
   const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', currentUser.id)
   const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', currentUser.id)
 
-  // AMBIL BUKU-BUKU YANG PERNAH DIUSULKAN OLEH USER INI
   const { data: userSubmissions } = await supabase.from('books')
     .select('*')
     .eq('user_id', currentUser.id)
