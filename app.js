@@ -1019,8 +1019,8 @@ function setupBookFormModal() {
           window.showToast('Perubahan disimpan! Usulan edit kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
         }
       } else {
-        // Mode Tambah Baru: Baru tetapkan user_id dan status publikasi
-        payload.user_id = currentUser?.id || null
+        // Mode Tambah Baru: Kalau Admin yang buat, user_id di-null-kan biar gak masuk usulan pribadi
+        payload.user_id = isAdmin ? null : (currentUser?.id || null)
         payload.is_published = isAdmin ? true : false
 
         const { error } = await supabase.from('books').insert(payload)
@@ -1049,6 +1049,7 @@ function setupBookFormModal() {
   formBookBulk?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const jsonStr = document.getElementById('bulk-json-input')?.value.trim()
+    const isAdmin = currentUser?.profile?.role === 'admin'
 
     if (!jsonStr) return window.showToast('Masukkan data JSON terlebih dahulu!', 'error')
 
@@ -1076,7 +1077,7 @@ function setupBookFormModal() {
           read_link: b.read_link || null,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
-          user_id: currentUser?.id || null
+          user_id: isAdmin ? null : (currentUser?.id || null)
         }
       })
 
