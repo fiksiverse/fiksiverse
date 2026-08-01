@@ -987,6 +987,7 @@ function setupBookFormModal() {
     const p4 = document.getElementById('preview-img-4')?.value.trim() || ''
     const previewImagesArr = [p1, p2, p3, p4].filter(url => url !== '')
 
+    // Payload dasar tanpa user_id agar pemilik asli tidak tertimpa saat edit
     const payload = {
       title: document.getElementById('book-title').value,
       author: document.getElementById('book-author').value,
@@ -998,16 +999,15 @@ function setupBookFormModal() {
       preview_images: previewImagesArr,
       read_link: document.getElementById('book-read-link').value || null,
       buy_link: document.getElementById('book-buy-link').value || null,
-      synopsis: document.getElementById('book-synopsis').value,
-      user_id: currentUser?.id || null
+      synopsis: document.getElementById('book-synopsis').value
     }
 
     try {
       if (id) {
-        // 🛡️ RE-VERIFIKASI BUKU (JIKA USER BIASA EDIT, STATUS KEMBALI KE PENDING & KANCI ALASAN PENOLAKAN LAMA)
+        // Mode Edit: Hanya update konten, jangan pernah ubah user_id
         if (!isAdmin) {
-          payload.is_published = false;
-          payload.rejection_reason = null; // Clear alasan penolakan saat diedit ulang
+          payload.is_published = false
+          payload.rejection_reason = null // Clear alasan penolakan saat diedit ulang
         }
 
         const { error } = await supabase.from('books').update(payload).eq('id', id)
@@ -1019,7 +1019,10 @@ function setupBookFormModal() {
           window.showToast('Perubahan disimpan! Usulan edit kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
         }
       } else {
+        // Mode Tambah Baru: Baru tetapkan user_id dan status publikasi
+        payload.user_id = currentUser?.id || null
         payload.is_published = isAdmin ? true : false
+
         const { error } = await supabase.from('books').insert(payload)
         if (error) throw error
 
