@@ -611,7 +611,7 @@ window.openBookDetail = async function(bookId) {
         <div class="space-y-2" style="padding-top:8px;">
           ${book.read_link ? `
             <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
-              <i class="bi bi-book"></i> Baca Narasi
+              <i class="bi bi-book"></i> Baca Buku
             </a>
           ` : ''}
           ${book.read_link_2 ? `
