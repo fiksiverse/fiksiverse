@@ -176,7 +176,7 @@ window.openUserProfile = async function(userId) {
 
     const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
-    let followBtnText = 'Ikuti (Follow)'
+    let followBtnText = 'Ikuti'
     let followBtnIcon = 'bi-person-plus-fill'
     let followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#6366f1); color:white;'
 
@@ -185,7 +185,7 @@ window.openUserProfile = async function(userId) {
       followBtnIcon = 'bi-person-check-fill'
       followBtnStyle = 'background:rgba(255,255,255,0.1); color:#cbd5e1; border:1px solid rgba(255,255,255,0.2);'
     } else if (isFollowedBy) {
-      followBtnText = 'Ikuti Balik (Follow Back)'
+      followBtnText = 'Ikuti Balik'
       followBtnIcon = 'bi-person-plus-fill'
       followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#38bdf8); color:white;'
     }
