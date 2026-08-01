@@ -267,12 +267,47 @@
 
   <!-- MODAL DETAIL BUKU -->
   <div id="modal-detail" class="modal-overlay hidden">
-    <div class="modal-box space-y-4">
+    <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
         <span class="modal-title">📖 Detail Buku</span>
         <button id="close-modal-detail" class="modal-close"><i class="bi bi-x-lg"></i></button>
       </div>
       <div id="detail-content" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- MODAL SEMUA KOMENTAR -->
+  <div id="modal-all-comments" class="modal-overlay hidden">
+    <div class="modal-box space-y-4" style="max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <span id="all-comments-title" class="modal-title" style="color:#c084fc;">💬 Semua Komentar</span>
+        <button id="close-modal-all-comments" class="modal-close" onclick="document.getElementById('modal-all-comments').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="all-comments-list" class="space-y-3"></div>
+      <form id="form-full-comment" class="space-y-2" style="padding-top:8px; border-top:1px solid rgba(168,85,247,0.2);">
+        <textarea id="full-comment-input" rows="2" placeholder="Tulis komentar kamu..." class="form-input" style="resize:none;" required></textarea>
+        <button type="submit" class="btn-full btn-galaxy-primary" style="font-size:12px;">Kirim Komentar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL LAPOR KOMENTAR (CUSTOM) -->
+  <div id="modal-report" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#f87171;">📫 Laporkan Komentar</span>
+        <button id="close-modal-report" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <input type="hidden" id="report-comment-id">
+      <input type="hidden" id="report-book-id">
+      <div class="form-group">
+        <label>Alasan Pelaporan</label>
+        <textarea id="report-reason-input" rows="3" placeholder="Misal: Spam, Bahasa Kasar, SARA, Spoiler..." class="form-input" style="resize:none;" required></textarea>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <button type="button" id="btn-cancel-report" class="btn-full" style="background:rgba(255,255,255,0.1); color:#cbd5e1;">Batal</button>
+        <button type="button" id="btn-submit-report" class="btn-full" style="background:#ef4444; color:white; font-weight:700;">Kirim Laporan</button>
+      </div>
     </div>
   </div>
 
@@ -309,6 +344,15 @@
           <label>Judul Buku / Karya</label>
           <input type="text" id="book-title" required placeholder="Contoh: Solo Leveling" class="form-input">
         </div>
+
+        <div class="form-group" id="group-uploader-type">
+          <label>Kepemilikan Karya / Status Pengunggah</label>
+          <select id="book-uploader-type" class="form-input">
+            <option value="reader">📖 Saya Pembaca (Karya Orang Lain)</option>
+            <option value="writer">✍️ Saya Penulis (Karya Saya Sendiri)</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label>Penulis / Author</label>
           <input type="text" id="book-author" required placeholder="Contoh: Chugong" class="form-input">
@@ -472,12 +516,7 @@
           <ul style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0; padding-left: 16px;">
             <li>Wajib sudah login/terdaftar di FiksiVerse.</li>
             <li>Isi nama penulis & judul sesuai karya asli.</li>
-            <li>Gunakan URL gambar cover yang jelas. Cara Pertama: 1) Gambar dari Internet Google/ Web, 2) Tahan/tekan pada gambar di HP/klik kanan di laptop, 3) Pilih "Open image in new tab" (Buka gambar di tab baru), 4) Buka tab baru tersebut, lalu "copy URL/link" di address bar bagian atas. 5) Pastikan ujung link-nya berakhiran .jpg, .png, atau .webp. Cara kedua: Gambar dari Galeri HP / File Sendiri
- 1) Buka situs imgbb.com.
- 2) Pilih "Choose Images / Upload", lalu masukkan foto cover dari galeri HP kamu.
- 3) Setelah selesai di-upload, cari dan salin bagian "Direct Link" (bukan Link atau HTML/BBCode).
- 4) Paste link-nya ke form Fiksiverse.
- Link file gambar langsung yang berakhiran .jpg, .jpeg, .png, .webp, atau .svg | Cara ini juga berlaku untuk mengubah foto profile |</li>
+            <li>Gunakan URL gambar cover yang jelas.</li>
             <li>Bebas konten SARA, spam, dan iklan di luar konteks cerita.</li>
           </ul>
         </div>
@@ -551,11 +590,11 @@
   </nav>
 
   <script type="module" src="app.js"></script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
-</script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
 
 </body>
 </html>

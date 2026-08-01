@@ -9,6 +9,7 @@ let bannerInterval = null
 let touchStartX = 0
 let touchEndX = 0
 let onConfirmCallback = null
+let activeBookDetailId = null
 
 let exploreSearchMode = 'books'
 
@@ -286,7 +287,7 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
-// BUKA FORM TAMBAH / EDIT BUKU (HAK EDIT DIPERBOLEHKAN UNTUK PENULIS NYA)
+// BUKA FORM TAMBAH / EDIT BUKU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan/mengedit buku!', 'error')
 
@@ -294,6 +295,7 @@ window.openBookFormById = async function(bookId = null) {
   const modalForm = document.getElementById('modal-book-form')
   const titleEl = document.getElementById('book-form-title')
   const tabsEl = document.getElementById('book-form-tabs')
+  const uploaderGroup = document.getElementById('group-uploader-type')
   
   const tabSingle = document.getElementById('tab-book-single')
   const tabBulk = document.getElementById('tab-book-bulk')
@@ -305,12 +307,13 @@ window.openBookFormById = async function(bookId = null) {
   formBook?.classList.remove('hidden')
   formBookBulk?.classList.add('hidden')
 
+  if (uploaderGroup) uploaderGroup.style.display = isAdmin ? 'none' : 'block'
+
   if (bookId) {
     try {
       const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
       if (!book) return
 
-      // Batasan keamanan: Halaman Edit hanya boleh dibuka Admin atau Pemilik Buku
       if (!isAdmin && book.user_id !== currentUser.id) {
         return window.showToast('Kamu hanya bisa mengedit buku buatanmu sendiri!', 'error')
       }
@@ -326,6 +329,9 @@ window.openBookFormById = async function(bookId = null) {
       document.getElementById('book-media-type').value = book.media_type || 'Novel'
       document.getElementById('book-status').value = book.status || 'Ongoing'
       document.getElementById('book-cover-url').value = book.cover_url || ''
+
+      const uploaderSelect = document.getElementById('book-uploader-type')
+      if (uploaderSelect) uploaderSelect.value = book.uploader_type || 'reader'
 
       const previews = book.preview_images || []
       if (document.getElementById('preview-img-1')) document.getElementById('preview-img-1').value = previews[0] || ''
@@ -351,13 +357,12 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
-// ADMIN APPROVE BUKU (SETUJU)
+// ADMIN APPROVE BUKU
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
     const payload = { is_published: nextStatus }
     
-    // Jika disetujui, bersihkan alasan penolakan (jika ada)
     if (nextStatus) {
       payload.rejection_reason = null
     }
@@ -375,10 +380,10 @@ window.togglePublishBook = async function(bookId, currentStatus) {
   }
 }
 
-// ADMIN REJECT BUKU (TOLAK DENGAN ALASAN)
+// ADMIN REJECT BUKU
 window.rejectBook = async function(bookId) {
-  const reason = prompt('Masukkan alasan penolakan usulan buku ini (biar user bisa memperbaiki):')
-  if (reason === null) return // Batal
+  const reason = prompt('Masukkan alasan penolakan usulan buku ini:')
+  if (reason === null) return
 
   if (!reason.trim()) {
     return window.showToast('Alasan penolakan tidak boleh kosong!', 'error')
@@ -484,8 +489,33 @@ window.deleteTag = function(id) {
 // BUKA DETAIL BUKU
 window.openBookDetail = async function(bookId) {
   try {
+    activeBookDetailId = bookId
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
     if (!book) return
+
+    let uploaderProfile = null
+    if (book.user_id) {
+      const { data: p } = await supabase.from('profiles').select('id, username, full_name, role').eq('id', book.user_id).single()
+      uploaderProfile = p
+    }
+
+    let uploaderHTML = ''
+    if (!book.user_id || uploaderProfile?.role === 'admin') {
+      uploaderHTML = `<span style="font-size:11px; color:#cbd5e1; display:flex; align-items:center; gap:4px;">👑 Diunggah oleh <b style="color:#f8fafc;">FiksiVerse Official</b></span>`
+    } else if (uploaderProfile) {
+      const isWriter = book.uploader_type === 'writer'
+      const badgeStyle = isWriter 
+        ? 'background:rgba(168,85,247,0.25); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4);' 
+        : 'background:rgba(56,189,248,0.25); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4);'
+      const badgeLabel = isWriter ? '✍️ Writer' : '📖 Reader'
+
+      uploaderHTML = `
+        <span style="font-size:11px; color:#cbd5e1; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          Diunggah oleh <b onclick="openUserProfile('${uploaderProfile.id}')" style="color:#38bdf8; cursor:pointer;">@${sanitizeText(uploaderProfile.username)}</b>
+          <span style="padding:2px 8px; font-size:10px; border-radius:9999px; font-weight:800; ${badgeStyle}">${badgeLabel}</span>
+        </span>
+      `
+    }
 
     let isBookmarked = false
     let isRecommended = false
@@ -498,9 +528,16 @@ window.openBookDetail = async function(bookId) {
       isRecommended = rec && rec.length > 0
     }
 
+    const { data: comments, count: commentCount } = await supabase
+      .from('comments')
+      .select('*, user:profiles(*)', { count: 'exact' })
+      .eq('book_id', bookId)
+      .order('created_at', { ascending: false })
+
     const isAdmin = currentUser?.profile?.role === 'admin'
     const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
+    const topComments = comments ? comments.slice(0, 3) : []
 
     const detailContent = document.getElementById('detail-content')
     if (detailContent) {
@@ -513,14 +550,15 @@ window.openBookDetail = async function(bookId) {
           <div class="space-y-2" style="flex:1;">
             <h2 style="font-size:16px; font-weight:800; color:#f8fafc;">${sanitizeText(book.title)}</h2>
             <p style="font-size:12px; color:#c084fc; font-weight:600;">${sanitizeText(book.author)}</p>
-            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            ${uploaderHTML}
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
               <span style="padding:2px 8px; background:rgba(168,85,247,0.2); color:#e9d5ff; font-size:10px; border-radius:9999px; font-weight:700;">
                 ${sanitizeText(book.media_type)} • ${sanitizeText(book.status)}
               </span>
               ${book.platform ? `<span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">📱 ${sanitizeText(book.platform)}</span>` : ''}
               ${book.genre ? `<span style="padding:2px 8px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:10px; border-radius:9999px; font-weight:600;">🏷️ ${sanitizeText(book.genre)}</span>` : ''}
             </div>
-            <div style="font-size:12px; color:#fbbf24; padding-top:4px; font-weight:700;">
+            <div style="font-size:12px; color:#fbbf24; padding-top:2px; font-weight:700;">
               <span>⭐ ${book.recommendation_count || 0} Rekomendasi</span>
             </div>
           </div>
@@ -577,12 +615,212 @@ window.openBookDetail = async function(bookId) {
           <h4 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:4px;">Sinopsis</h4>
           <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
         </div>
+
+        <!-- FITUR KOMENTAR PREVIEW -->
+        <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h4 style="font-size:12px; font-weight:800; color:#c084fc;">💬 Komentar (${commentCount || 0})</h4>
+            ${commentCount > 0 ? `
+              <button onclick="openAllCommentsModal('${book.id}')" style="background:transparent; color:#38bdf8; border:none; font-size:11px; font-weight:700; cursor:pointer;">
+                Lihat Semua (${commentCount}) »
+              </button>
+            ` : ''}
+          </div>
+
+          <!-- FORM QUICK COMMENT -->
+          <form id="form-quick-comment" style="display:flex; gap:6px; margin-bottom:10px;">
+            <input type="text" id="quick-comment-input" placeholder="Tulis komentar..." class="form-input" style="font-size:11px; padding:8px 12px;" required>
+            <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
+          </form>
+
+          <!-- LIST PREVIEW 3 KOMENTAR -->
+          <div class="space-y-2">
+            ${topComments.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada komentar. Jadi yang pertama berkomentar!</p>` : ''}
+            ${topComments.map(c => renderCommentItemHTML(c, book.id)).join('')}
+          </div>
+        </div>
       `
+
+      document.getElementById('form-quick-comment')?.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const input = document.getElementById('quick-comment-input')
+        if (!input || !input.value.trim()) return
+        await submitComment(book.id, input.value.trim())
+      })
     }
     document.getElementById('modal-detail')?.classList.remove('hidden')
     pushHistoryState('modal', 'modal-detail')
   } catch(e) {
     window.showToast('Gagal membuka detail buku', 'error')
+  }
+}
+
+function renderCommentItemHTML(c, bookId) {
+  const isMine = currentUser && currentUser.id === c.user_id
+  const isAdmin = currentUser?.profile?.role === 'admin'
+  const canDelete = isMine || isAdmin
+
+  return `
+    <div style="background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(168,85,247,0.15);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="openUserProfile('${c.user_id}')">
+          <img src="${sanitizeText(c.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + c.user_id}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+          <span style="font-size:11px; font-weight:700; color:#f8fafc;">@${sanitizeText(c.user?.username || 'user')}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:9px; color:#94a3b8;">${new Date(c.created_at).toLocaleDateString('id-ID')}</span>
+          ${canDelete ? `
+            <button onclick="deleteComment('${c.id}', '${bookId}')" title="Hapus Komentar" style="background:transparent; border:none; color:#f87171; font-size:11px; cursor:pointer; padding:2px;">
+              🗑️
+            </button>
+          ` : ''}
+          ${!isMine ? `
+            <button onclick="openReportModal('${c.id}', '${bookId}')" title="Laporkan Komentar" style="background:transparent; border:none; color:#f87171; font-size:11px; cursor:pointer; padding:2px;">
+              🚩
+            </button>
+          ` : ''}
+        </div>
+      </div>
+      <p style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">${sanitizeText(c.content)}</p>
+    </div>
+  `
+}
+
+window.submitComment = async function(bookId, content) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk berkomentar!', 'error')
+
+  try {
+    const { error } = await supabase.from('comments').insert({
+      book_id: bookId,
+      user_id: currentUser.id,
+      content: content
+    })
+
+    if (error) throw error
+
+    window.showToast('Komentar berhasil dikirim! 💬')
+    window.openBookDetail(bookId)
+  } catch (err) {
+    window.showToast('Gagal mengirim komentar: ' + err.message, 'error')
+  }
+}
+
+window.deleteComment = function(commentId, bookId) {
+  window.showConfirmModal('Hapus Komentar', 'Apakah kamu yakin ingin menghapus komentar ini?', async () => {
+    try {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId)
+      if (error) throw error
+
+      window.showToast('Komentar berhasil dihapus!')
+      if (activeBookDetailId) window.openBookDetail(activeBookDetailId)
+
+      const modalAll = document.getElementById('modal-all-comments')
+      if (modalAll && !modalAll.classList.contains('hidden')) {
+        window.openAllCommentsModal(bookId)
+      }
+    } catch (err) {
+      window.showToast('Gagal menghapus komentar: ' + err.message, 'error')
+    }
+  })
+}
+
+window.openReportModal = function(commentId, bookId) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
+
+  document.getElementById('report-comment-id').value = commentId
+  document.getElementById('report-book-id').value = bookId
+  document.getElementById('report-reason-input').value = ''
+  
+  const modalReport = document.getElementById('modal-report')
+  modalReport?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-report')
+}
+
+function setupReportModal() {
+  const modalReport = document.getElementById('modal-report')
+  const btnClose = document.getElementById('close-modal-report')
+  const btnCancel = document.getElementById('btn-cancel-report')
+  const btnSubmit = document.getElementById('btn-submit-report')
+
+  const closeModal = () => modalReport?.classList.add('hidden')
+
+  btnClose?.addEventListener('click', closeModal)
+  btnCancel?.addEventListener('click', closeModal)
+
+  btnSubmit?.addEventListener('click', async () => {
+    const commentId = document.getElementById('report-comment-id').value
+    const bookId = document.getElementById('report-book-id').value
+    const reason = document.getElementById('report-reason-input').value.trim()
+
+    if (!reason) return window.showToast('Alasan pelaporan tidak boleh kosong!', 'error')
+
+    try {
+      const { error } = await supabase.from('comment_reports').insert({
+        comment_id: commentId,
+        reporter_id: currentUser.id,
+        reason: reason
+      })
+
+      if (error) throw error
+
+      // Kirim Notifikasi ke Admin
+      const { data: adminProfiles } = await supabase.from('profiles').select('id').eq('role', 'admin')
+      if (adminProfiles && adminProfiles.length > 0) {
+        const notifs = adminProfiles.map(a => ({
+          user_id: a.id,
+          actor_id: currentUser.id,
+          type: 'comment_report',
+          book_id: bookId
+        }))
+        await supabase.from('notifications').insert(notifs)
+      }
+
+      window.showToast('Laporan berhasil dikirim ke Admin! 🛡️')
+      closeModal()
+    } catch (err) {
+      window.showToast('Gagal mengirim laporan: ' + err.message, 'error')
+    }
+  })
+}
+
+window.openAllCommentsModal = async function(bookId) {
+  const modal = document.getElementById('modal-all-comments')
+  const container = document.getElementById('all-comments-list')
+  if (!container) return
+
+  container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center;">Memuat semua komentar...</p>`
+  modal?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-all-comments')
+
+  try {
+    const { data: comments } = await supabase
+      .from('comments')
+      .select('*, user:profiles(*)')
+      .eq('book_id', bookId)
+      .order('created_at', { ascending: false })
+
+    if (!comments || comments.length === 0) {
+      container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:12px 0;">Belum ada komentar.</p>`
+    } else {
+      container.innerHTML = comments.map(c => renderCommentItemHTML(c, bookId)).join('')
+    }
+
+    const fullForm = document.getElementById('form-full-comment')
+    if (fullForm) {
+      const newForm = fullForm.cloneNode(true)
+      fullForm.parentNode.replaceChild(newForm, fullForm)
+
+      newForm.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const input = document.getElementById('full-comment-input')
+        if (!input || !input.value.trim()) return
+        await submitComment(bookId, input.value.trim())
+        input.value = ''
+        window.openAllCommentsModal(bookId)
+      })
+    }
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:11px; color:#f87171; text-align:center;">Gagal memuat komentar.</p>`
   }
 }
 
@@ -679,6 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNotifAndSocialModal()
   setupEditProfileModal()
   setupConfirmModalEvents()
+  setupReportModal()
   setupMobileBackNavigation()
 
   initAppData()
@@ -965,6 +1204,7 @@ function setupBookFormModal() {
         "genre": "Action, Fantasy",
         "media_type": "Komik",
         "status": "Completed",
+        "uploader_type": "reader",
         "is_published": true,
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
         "read_link": "https://kakao.com/solo-leveling",
@@ -987,7 +1227,6 @@ function setupBookFormModal() {
     const p4 = document.getElementById('preview-img-4')?.value.trim() || ''
     const previewImagesArr = [p1, p2, p3, p4].filter(url => url !== '')
 
-    // Payload dasar tanpa user_id agar pemilik asli tidak tertimpa saat edit
     const payload = {
       title: document.getElementById('book-title').value,
       author: document.getElementById('book-author').value,
@@ -999,15 +1238,15 @@ function setupBookFormModal() {
       preview_images: previewImagesArr,
       read_link: document.getElementById('book-read-link').value || null,
       buy_link: document.getElementById('book-buy-link').value || null,
-      synopsis: document.getElementById('book-synopsis').value
+      synopsis: document.getElementById('book-synopsis').value,
+      uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader')
     }
 
     try {
       if (id) {
-        // Mode Edit: Hanya update konten, jangan pernah ubah user_id
         if (!isAdmin) {
           payload.is_published = false
-          payload.rejection_reason = null // Clear alasan penolakan saat diedit ulang
+          payload.rejection_reason = null
         }
 
         const { error } = await supabase.from('books').update(payload).eq('id', id)
@@ -1019,7 +1258,6 @@ function setupBookFormModal() {
           window.showToast('Perubahan disimpan! Usulan edit kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
         }
       } else {
-        // Mode Tambah Baru: Kalau Admin yang buat, user_id di-null-kan biar gak masuk usulan pribadi
         payload.user_id = isAdmin ? null : (currentUser?.id || null)
         payload.is_published = isAdmin ? true : false
 
@@ -1072,6 +1310,7 @@ function setupBookFormModal() {
           genre: b.genre || null,
           media_type: b.media_type || 'Novel',
           status: b.status || 'Ongoing',
+          uploader_type: b.uploader_type || 'reader',
           is_published: b.is_published !== undefined ? b.is_published : true,
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
@@ -1697,6 +1936,14 @@ async function loadProfile() {
           </button>
         </div>
 
+        <!-- SEKSI MODERASI LAPORAN KOMENTAR -->
+        <div style="padding-top:10px; border-top:1px dashed rgba(168,85,247,0.3);">
+          <h5 style="font-size:12px; font-weight:800; color:#f87171; margin-bottom:8px;">
+            🛡️ Kelola Laporan Komentar
+          </h5>
+          <div id="admin-reports-list" class="space-y-2"></div>
+        </div>
+
         <div style="padding-top:8px;">
           <div id="admin-books-list" class="space-y-3"></div>
         </div>
@@ -1722,12 +1969,94 @@ async function loadProfile() {
       pushHistoryState('modal', 'modal-tag-form')
       renderAdminTagList()
     })
+    loadAdminReportsList()
     loadAdminBooksList()
   }
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// BUKA LIST DAFTAR BUKU ADMIN (DENGAN TOMBOL SETUJUI & TOLAK DENGAN ALASAN)
+async function loadAdminReportsList() {
+  const container = document.getElementById('admin-reports-list')
+  if (!container) return
+
+  const { data: reports, error } = await supabase
+    .from('comment_reports')
+    .select('*, comment:comments(*, user:profiles(*), book:books(*)), reporter:profiles!comment_reports_reporter_id_fkey(*)')
+    .order('created_at', { ascending: false })
+
+  if (error || !reports || reports.length === 0) {
+    container.innerHTML = `<p style="font-size:11px; color:#94a3b8;">Tidak ada laporan komentar saat ini. ✨</p>`
+    return
+  }
+
+  container.innerHTML = reports.map(r => {
+    const bookId = r.comment?.book_id || r.comment?.book?.id
+
+    return `
+      <div style="background:rgba(239,68,68,0.08); padding:10px; border-radius:12px; border:1px solid rgba(239,68,68,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <p style="font-size:11px; color:#f87171; font-weight:700;">⚠️ Pelapor: @${sanitizeText(r.reporter?.username || 'user')}</p>
+            <p style="font-size:10px; color:#cbd5e1; margin-top:2px;"><b>Alasan:</b> ${sanitizeText(r.reason)}</p>
+          </div>
+          <span style="font-size:9px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
+        </div>
+        
+        <!-- KOTAK KOMENTAR BISA DIKLIK LANGSUNG UNTUK INVESTIGASI KONTEKS -->
+        <div onclick="${bookId ? `openBookDetail('${bookId}')` : ''}" 
+             style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);" 
+             title="Klik untuk lihat konteks di buku">
+          <b style="color:#a855f7;">@${sanitizeText(r.comment?.user?.username || 'user')}:</b> "${sanitizeText(r.comment?.content || '[Komentar telah dihapus]')}"
+          <div style="font-size:9px; color:#38bdf8; margin-top:4px; display:flex; align-items:center; justify-content:space-between;">
+            <span>📖 Buku: <b>${sanitizeText(r.comment?.book?.title || '-')}</b></span>
+            <span style="color:#c084fc; font-weight:700;">Lihat Konteks 🔍</span>
+          </div>
+        </div>
+
+        <!-- TOMBOL AKSI MODERASI -->
+        <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;">
+          ${bookId ? `
+            <button onclick="openBookDetail('${bookId}')" style="padding:4px 10px; background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
+              🔍 Cek TKP
+            </button>
+          ` : ''}
+          <button onclick="dismissReport('${r.id}')" style="padding:4px 10px; background:rgba(255,255,255,0.1); color:#cbd5e1; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
+            Abaikan
+          </button>
+          <button onclick="deleteReportedComment('${r.comment_id}', '${r.id}')" style="padding:4px 10px; background:#ef4444; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+            Hapus Komentar
+          </button>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+window.deleteReportedComment = function(commentId, reportId) {
+  window.showConfirmModal('Hapus Komentar', 'Apakah kamu yakin ingin menghapus komentar melanggar ini?', async () => {
+    try {
+      if (commentId) {
+        await supabase.from('comments').delete().eq('id', commentId)
+      }
+      await supabase.from('comment_reports').delete().eq('id', reportId)
+      window.showToast('Komentar berhasil dihapus!')
+      loadAdminReportsList()
+    } catch(e) {
+      window.showToast('Gagal menghapus komentar', 'error')
+    }
+  })
+}
+
+window.dismissReport = async function(reportId) {
+  try {
+    await supabase.from('comment_reports').delete().eq('id', reportId)
+    window.showToast('Laporan diabaikan.')
+    loadAdminReportsList()
+  } catch(e) {
+    window.showToast('Gagal mengabaikan laporan', 'error')
+  }
+}
+
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1843,16 +2172,26 @@ async function loadNotifications() {
       return
     }
 
-    container.innerHTML = notifs.map(n => `
-      <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
-        <img src="${sanitizeText(n.actor?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
-        <div class="notif-text">
-          <b>${sanitizeText(n.actor?.full_name) || 'Seseorang'}</b> 
-          ${n.type === 'follow' ? 'mulai mengikuti kamu.' : `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`}
-          <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
+    container.innerHTML = notifs.map(n => {
+      let notifMsg = ''
+      if (n.type === 'follow') {
+        notifMsg = 'mulai mengikuti kamu.'
+      } else if (n.type === 'comment_report') {
+        notifMsg = '⚠️ <b>melaporkan komentar</b> di salah satu cerita.'
+      } else {
+        notifMsg = `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
+      }
+
+      return `
+        <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
+          <img src="${sanitizeText(n.actor?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
+          <div class="notif-text">
+            <b>${sanitizeText(n.actor?.full_name) || 'Seseorang'}</b> ${notifMsg}
+            <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
+          </div>
         </div>
-      </div>
-    `).join('')
+      `
+    }).join('')
   } catch (err) {
     container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">Belum ada notifikasi.</p>`
   }
