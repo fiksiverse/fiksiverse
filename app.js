@@ -351,10 +351,18 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
+// ADMIN APPROVE BUKU (SETUJU)
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
-    const { error } = await supabase.from('books').update({ is_published: nextStatus }).eq('id', bookId)
+    const payload = { is_published: nextStatus }
+    
+    // Jika disetujui, bersihkan alasan penolakan (jika ada)
+    if (nextStatus) {
+      payload.rejection_reason = null
+    }
+
+    const { error } = await supabase.from('books').update(payload).eq('id', bookId)
     if (error) throw error
 
     window.showToast(nextStatus ? 'Buku disetujui & terbit ke publik! 🎉' : 'Buku disimpan ke Draft.')
@@ -364,6 +372,31 @@ window.togglePublishBook = async function(bookId, currentStatus) {
     loadProfile()
   } catch (err) {
     window.showToast('Gagal ubah status publikasi: ' + err.message, 'error')
+  }
+}
+
+// ADMIN REJECT BUKU (TOLAK DENGAN ALASAN)
+window.rejectBook = async function(bookId) {
+  const reason = prompt('Masukkan alasan penolakan usulan buku ini (biar user bisa memperbaiki):')
+  if (reason === null) return // Batal
+
+  if (!reason.trim()) {
+    return window.showToast('Alasan penolakan tidak boleh kosong!', 'error')
+  }
+
+  try {
+    const { error } = await supabase.from('books').update({
+      is_published: false,
+      rejection_reason: reason.trim()
+    }).eq('id', bookId)
+
+    if (error) throw error
+
+    window.showToast('Usulan buku telah ditolak dengan alasan.')
+    loadAdminBooksList()
+    loadProfile()
+  } catch (err) {
+    window.showToast('Gagal menolak usulan: ' + err.message, 'error')
   }
 }
 
@@ -448,7 +481,7 @@ window.deleteTag = function(id) {
   })
 }
 
-// BUKA DETAIL BUKU (DENGAN SAFE LINKS & TOMBOL EDIT BUAT AUTHOR/ADMIN)
+// BUKA DETAIL BUKU
 window.openBookDetail = async function(bookId) {
   try {
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
@@ -535,7 +568,6 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
-        <!-- LINK BACA / BELI AMAN DENGAN rel="noopener noreferrer nofollow" -->
         <div class="space-y-2" style="padding-top:8px;">
           ${book.read_link ? `<a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;"><i class="bi bi-book"></i> Baca Sekarang</a>` : ''}
           ${book.buy_link ? `<a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none;"><i class="bi bi-cart"></i> Beli Sekarang</a>` : ''}
@@ -972,9 +1004,10 @@ function setupBookFormModal() {
 
     try {
       if (id) {
-        // 🛡️ RE-VERIFIKASI BUKU (JIKA USER BIASA EDIT, KEMBALIKAN KE DRAFT/PENDING)
+        // 🛡️ RE-VERIFIKASI BUKU (JIKA USER BIASA EDIT, STATUS KEMBALI KE PENDING & KANCI ALASAN PENOLAKAN LAMA)
         if (!isAdmin) {
           payload.is_published = false;
+          payload.rejection_reason = null; // Clear alasan penolakan saat diedit ulang
         }
 
         const { error } = await supabase.from('books').update(payload).eq('id', id)
@@ -1584,7 +1617,7 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD STATUS USULAN BUKU SAYA (USER DAPAT EDIT SINI) -->
+    <!-- CARD STATUS USULAN BUKU SAYA -->
     <div class="glass-card space-y-3" style="padding:14px;">
       <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
         📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
@@ -1595,24 +1628,42 @@ async function loadProfile() {
       ` : `
         <div class="space-y-2">
           ${userSubmissions.map(b => {
-            const isAcc = b.is_published !== false
+            const isApproved = b.is_published !== false
+            const isRejected = !isApproved && b.rejection_reason
+
+            let badgeHTML = ''
+            if (isApproved) {
+              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Disetujui</span>`
+            } else if (isRejected) {
+              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);">❌ Ditolak</span>`
+            } else {
+              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Pending</span>`
+            }
+
             return `
-              <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
-                <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
-                  <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                  <div style="overflow:hidden;">
-                    <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
-                    <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+              <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid ${isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(168,85,247,0.15)'};">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                    <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                    <div style="overflow:hidden;">
+                      <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                      <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+                    </div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
+                    ${badgeHTML}
+                    <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      ✏️ Edit
+                    </button>
                   </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
-                  <span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; ${isAcc ? 'background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);' : 'background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);'}">
-                    ${isAcc ? '✅ Disetujui' : '⏳ Pending'}
-                  </span>
-                  <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                    ✏️ Edit
-                  </button>
-                </div>
+
+                <!-- JIKA DITOLAK: TAMPILKAN ALASAN PENOLAKAN DARI ADMIN -->
+                ${isRejected ? `
+                  <div style="font-size:10px; color:#fca5a5; margin-top:8px; background:rgba(239,68,68,0.1); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); line-height:1.4;">
+                    <b>Alasan Penolakan:</b> ${sanitizeText(b.rejection_reason)}
+                  </div>
+                ` : ''}
               </div>
             `
           }).join('')}
@@ -1671,7 +1722,7 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// BUKA LIST DAFTAR BUKU ADMIN (BISA DIKLIK MASUK KE DETAIL MODAL)
+// BUKA LIST DAFTAR BUKU ADMIN (DENGAN TOMBOL SETUJUI & TOLAK DENGAN ALASAN)
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1689,30 +1740,38 @@ async function loadAdminBooksList() {
   container.innerHTML = `
     <div id="admin-pending-section">
       <h5 style="font-size:12px; font-weight:800; color:#fbbf24; margin-bottom:6px;">
-        ⏳ Menunggu Persetujuan (${pendingBooks.length})
+        ⏳ Menunggu Persetujuan / Permintaan (${pendingBooks.length})
       </h5>
       ${pendingBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Tidak ada antrean usulan buku.</p>` : ''}
       <div class="space-y-2">
         ${pendingBooks.map(b => `
-          <div onclick="if(event.target.tagName !== 'BUTTON') openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
-            <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-              <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-              <div style="overflow:hidden;">
-                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
-                <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+          <div style="background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
+            <div onclick="if(event.target.tagName !== 'BUTTON') openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
+                <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                <div style="overflow:hidden;">
+                  <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                  <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+                </div>
+              </div>
+              <div style="display:flex; gap:4px; margin-left:8px;">
+                <button onclick="togglePublishBook('${b.id}', false)" title="Setujui & Terbit" style="background:#34d399; color:#064e3b; border:none; padding:6px 8px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">
+                  ✅ Setujui
+                </button>
+                <button onclick="rejectBook('${b.id}')" title="Tolak Usulan" style="background:#ef4444; color:white; border:none; padding:6px 8px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">
+                  ❌ Tolak
+                </button>
+                <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                  ✏️
+                </button>
               </div>
             </div>
-            <div style="display:flex; gap:4px; margin-left:8px;">
-              <button onclick="togglePublishBook('${b.id}', false)" title="Setujui & Terbit" style="background:#34d399; color:#064e3b; border:none; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;">
-                ✅ Setujui
-              </button>
-              <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                ✏️
-              </button>
-              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                🗑️
-              </button>
-            </div>
+
+            ${b.rejection_reason ? `
+              <div style="font-size:10px; color:#fca5a5; margin-top:6px; padding-top:4px; border-top:1px dashed rgba(239,68,68,0.3);">
+                Status saat ini: <b>Ditolak</b> ("${sanitizeText(b.rejection_reason)}")
+              </div>
+            ` : ''}
           </div>
         `).join('')}
       </div>
