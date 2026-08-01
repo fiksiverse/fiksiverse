@@ -1,0 +1,16 @@
+{
+  "name": "FiksiVerse",
+  "short_name": "FiksiVerse",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0826",
+  "theme_color": "#a855f7",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/512.png?text=FiksiVerse",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
