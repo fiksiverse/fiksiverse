@@ -1621,59 +1621,60 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD STATUS USULAN BUKU SAYA -->
-    <div class="glass-card space-y-3" style="padding:14px;">
-      <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
-        📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
-      </h4>
+    <!-- CARD STATUS USULAN BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
+    ${!isAdmin ? `
+      <div class="glass-card space-y-3" style="padding:14px;">
+        <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
+          📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
+        </h4>
 
-      ${!userSubmissions || userSubmissions.length === 0 ? `
-        <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah mengusulkan buku.</p>
-      ` : `
-        <div class="space-y-2">
-          ${userSubmissions.map(b => {
-            const isApproved = b.is_published !== false
-            const isRejected = !isApproved && b.rejection_reason
+        ${!userSubmissions || userSubmissions.length === 0 ? `
+          <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah mengusulkan buku.</p>
+        ` : `
+          <div class="space-y-2">
+            ${userSubmissions.map(b => {
+              const isApproved = b.is_published !== false
+              const isRejected = !isApproved && b.rejection_reason
 
-            let badgeHTML = ''
-            if (isApproved) {
-              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Disetujui</span>`
-            } else if (isRejected) {
-              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);">❌ Ditolak</span>`
-            } else {
-              badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Pending</span>`
-            }
+              let badgeHTML = ''
+              if (isApproved) {
+                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Disetujui</span>`
+              } else if (isRejected) {
+                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);">❌ Ditolak</span>`
+              } else {
+                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Pending</span>`
+              }
 
-            return `
-              <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid ${isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(168,85,247,0.15)'};">
-                <div style="display:flex; align-items:center; justify-content:space-between;">
-                  <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
-                    <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                    <div style="overflow:hidden;">
-                      <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
-                      <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+              return `
+                <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid ${isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(168,85,247,0.15)'};">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                      <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                      <div style="overflow:hidden;">
+                        <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                        <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
+                      ${badgeHTML}
+                      <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                        ✏️ Edit
+                      </button>
                     </div>
                   </div>
-                  <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
-                    ${badgeHTML}
-                    <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                      ✏️ Edit
-                    </button>
-                  </div>
-                </div>
 
-                <!-- JIKA DITOLAK: TAMPILKAN ALASAN PENOLAKAN DARI ADMIN -->
-                ${isRejected ? `
-                  <div style="font-size:10px; color:#fca5a5; margin-top:8px; background:rgba(239,68,68,0.1); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); line-height:1.4;">
-                    <b>Alasan Penolakan:</b> ${sanitizeText(b.rejection_reason)}
-                  </div>
-                ` : ''}
-              </div>
-            `
-          }).join('')}
-        </div>
-      `}
-    </div>
+                  ${isRejected ? `
+                    <div style="font-size:10px; color:#fca5a5; margin-top:8px; background:rgba(239,68,68,0.1); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); line-height:1.4;">
+                      <b>Alasan Penolakan:</b> ${sanitizeText(b.rejection_reason)}
+                    </div>
+                  ` : ''}
+                </div>
+              `
+            }).join('')}
+          </div>
+        `}
+      </div>
+    ` : ''}
 
     ${isAdmin ? `
       <div class="glass-card space-y-3" style="padding:14px;">
