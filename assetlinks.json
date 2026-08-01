@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "app.vercel.fiksiverse.twa",
-        "sha256_cert_fingerprints": ["8A:E1:3E:FB:55:4A:FB:F5:CE:9C:BE:CC:60:61:88:CF:2D:72:FC:28:BE:61:C6:2E:D9:72:82:2F:9F:8F:1F:0F"]
-      }
-    }]
