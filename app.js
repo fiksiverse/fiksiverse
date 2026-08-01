@@ -413,7 +413,7 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
-// ADMIN APPROVE BUKU
+// ADMIN APPROVE BUKU (+ KIKIM NOTIFIKASI BUKU TERBIT)
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
@@ -425,6 +425,33 @@ window.togglePublishBook = async function(bookId, currentStatus) {
 
     const { error } = await supabase.from('books').update(payload).eq('id', bookId)
     if (error) throw error
+
+    if (nextStatus) {
+      // Ambil data buku untuk dikirimin notifikasi
+      const { data: book } = await supabase.from('books').select('user_id, title').eq('id', bookId).single()
+      
+      if (book && book.user_id) {
+        // 1. Notif ke pengunggah bahwa bukunya resmi disetujui Admin
+        await supabase.from('notifications').insert({
+          user_id: book.user_id,
+          actor_id: currentUser.id,
+          type: 'book_approved',
+          book_id: bookId
+        })
+
+        // 2. Notif ke pengikut pengunggah bahwa ada buku baru
+        const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', book.user_id)
+        if (followers && followers.length > 0) {
+          const notifs = followers.map(f => ({
+            user_id: f.follower_id,
+            actor_id: book.user_id,
+            type: 'new_book',
+            book_id: bookId
+          }))
+          await supabase.from('notifications').insert(notifs)
+        }
+      }
+    }
 
     window.showToast(nextStatus ? 'Buku disetujui & terbit ke publik! 🎉' : 'Buku disimpan ke Draft.')
     loadAdminBooksList()
@@ -674,7 +701,7 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
-        <!-- TOMBOL AKSES BUKU (NAMA TERBARU) -->
+        <!-- TOMBOL AKSES BUKU -->
         <div class="space-y-2" style="padding-top:8px;">
           ${book.read_link ? `
             <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
@@ -825,6 +852,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
   `
 }
 
+// SIMPAN KOMENTAR & KIRIM NOTIFIKASI OTOMATIS
 window.submitComment = async function(bookId, content, parentId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk berkomentar!', 'error')
 
@@ -837,8 +865,32 @@ window.submitComment = async function(bookId, content, parentId = null) {
     if (parentId) payload.parent_id = parentId
 
     const { error } = await supabase.from('comments').insert(payload)
-
     if (error) throw error
+
+    // KELOLA NOTIFIKASI OTOMATIS
+    if (parentId) {
+      // 1. Notif Balas Komentar -> ke pembuat komentar induk
+      const { data: parentComm } = await supabase.from('comments').select('user_id').eq('id', parentId).single()
+      if (parentComm && parentComm.user_id && parentComm.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({
+          user_id: parentComm.user_id,
+          actor_id: currentUser.id,
+          type: 'reply',
+          book_id: bookId
+        })
+      }
+    } else {
+      // 2. Notif Komentar Utama -> ke pengunggah/pemilik buku
+      const { data: bookData } = await supabase.from('books').select('user_id').eq('id', bookId).single()
+      if (bookData && bookData.user_id && bookData.user_id !== currentUser.id) {
+        await supabase.from('notifications').insert({
+          user_id: bookData.user_id,
+          actor_id: currentUser.id,
+          type: 'comment',
+          book_id: bookId
+        })
+      }
+    }
 
     window.showToast(parentId ? 'Balasan berhasil dikirim! 💬' : 'Komentar berhasil dikirim! 💬')
     
@@ -1420,10 +1472,21 @@ function setupBookFormModal() {
         payload.user_id = isAdmin ? null : (currentUser?.id || null)
         payload.is_published = isAdmin ? true : false
 
-        const { error } = await supabase.from('books').insert(payload)
+        const { data: newBook, error } = await supabase.from('books').insert(payload).select().single()
         if (error) throw error
 
         if (isAdmin) {
+          // Jika Admin tambah buku langsung terbit, kirim notif ke pengikut admin jika ada
+          const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', currentUser.id)
+          if (followers && followers.length > 0 && newBook) {
+            const notifs = followers.map(f => ({
+              user_id: f.follower_id,
+              actor_id: currentUser.id,
+              type: 'new_book',
+              book_id: newBook.id
+            }))
+            await supabase.from('notifications').insert(notifs)
+          }
           window.showToast('Buku baru berhasil ditambahkan & terbit!')
         } else {
           window.showToast('Buku berhasil ditambahkan! Menunggu verifikasi Admin 🚀')
@@ -2317,6 +2380,7 @@ async function checkUnreadNotifications() {
   }
 }
 
+// FORMAT PENAMPILAN NOTIFIKASI
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
@@ -2336,17 +2400,30 @@ async function loadNotifications() {
       let notifMsg = ''
       if (n.type === 'follow') {
         notifMsg = 'mulai mengikuti kamu.'
+      } else if (n.type === 'comment') {
+        notifMsg = `mengomentari buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
+      } else if (n.type === 'reply') {
+        notifMsg = `membalas komentarmu di buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
+      } else if (n.type === 'new_book') {
+        notifMsg = `menambahkan buku baru: <b>${sanitizeText(n.book?.title) || ''}</b>.`
+      } else if (n.type === 'book_approved') {
+        notifMsg = `🎉 Bukumu <b>${sanitizeText(n.book?.title) || ''}</b> telah disetujui Admin & terbit!`
       } else if (n.type === 'comment_report') {
         notifMsg = '⚠️ <b>melaporkan komentar</b> di salah satu cerita.'
       } else {
         notifMsg = `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
       }
 
+      // AKSI KLIK NOTIFIKASI: Buka detail buku jika ada `book_id`, atau buka profil actor
+      const clickAction = n.book_id 
+        ? `onclick="openBookDetail('${n.book_id}')"` 
+        : (n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : '')
+
       return `
-        <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
-          <img src="${sanitizeText(n.actor?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
+        <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${clickAction} style="cursor:pointer;">
+          <img src="${sanitizeText(n.actor?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (n.actor_id || n.id)}" class="notif-avatar">
           <div class="notif-text">
-            <b>${sanitizeText(n.actor?.full_name) || 'Seseorang'}</b> ${notifMsg}
+            <b>${sanitizeText(n.actor?.full_name) || 'FiksiVerse'}</b> ${notifMsg}
             <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
           </div>
         </div>
