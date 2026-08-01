@@ -130,6 +130,26 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
+// TOGGLE TAB PADA PROFIL PUBLIC (DIREKOMENDASIKAN VS DITAMBAHKAN)
+window.switchPublicTab = function(type) {
+  const btnRec = document.getElementById('public-tab-rec')
+  const btnAdded = document.getElementById('public-tab-added')
+  const secRec = document.getElementById('public-sec-rec')
+  const secAdded = document.getElementById('public-sec-added')
+
+  if (type === 'rec') {
+    btnRec?.classList.add('active')
+    btnAdded?.classList.remove('active')
+    secRec?.classList.remove('hidden')
+    secAdded?.classList.add('hidden')
+  } else {
+    btnAdded?.classList.add('active')
+    btnRec?.classList.remove('active')
+    secAdded?.classList.remove('hidden')
+    secRec?.classList.add('hidden')
+  }
+}
+
 // BUKA PROFIL AKUN LAIN
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
@@ -173,9 +193,14 @@ window.openUserProfile = async function(userId) {
 
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
+    
+    // FETCH REKOMENDASI BACAAN USER
     const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
+    const recBooks = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
-    const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
+    // FETCH BUKU YANG DITAMBAHKAN USER (TERBIT)
+    const { data: userAdded } = await supabase.from('books').select('*').eq('user_id', userId).eq('is_published', true).order('created_at', { ascending: false })
+    const addedBooks = userAdded || []
 
     let followBtnText = 'Ikuti'
     let followBtnIcon = 'bi-person-plus-fill'
@@ -223,11 +248,41 @@ window.openUserProfile = async function(userId) {
         </div>
       </div>
 
-      <div style="padding-top:8px;">
-        <h4 style="font-size:13px; font-weight:800; color:#c084fc; margin-bottom:8px;">⭐ Rekomendasi Bacaan (${books.length})</h4>
-        ${books.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">User ini belum merekomendasikan buku apa pun.</p>` : ''}
+      <!-- TAB SWITCHER: DIREKOMENDASIKAN VS DITAMBAHKAN -->
+      <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:12px; padding-bottom:8px; margin-top:8px;">
+        <button id="public-tab-rec" onclick="window.switchPublicTab('rec')" class="auth-tab active" type="button" style="font-size:12px; padding:6px 12px;">
+          ⭐ Direkomendasikan (${recBooks.length})
+        </button>
+        <button id="public-tab-added" onclick="window.switchPublicTab('added')" class="auth-tab" type="button" style="font-size:12px; padding:6px 12px;">
+          📚 Ditambahkan (${addedBooks.length})
+        </button>
+      </div>
+
+      <!-- SEKSI 1: REKOMENDASI BACAAN USER -->
+      <div id="public-sec-rec" style="padding-top:8px;">
+        ${recBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum merekomendasikan buku apa pun.</p>` : ''}
         <div class="book-grid-vertical">
-          ${books.map(book => `
+          ${recBooks.map(book => `
+            <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+              <div class="uncropped-cover-container" style="height:150px;">
+                <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+                <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+                <span class="book-badge">${sanitizeText(book.media_type)}</span>
+              </div>
+              <div class="book-info">
+                <h3 class="book-title">${sanitizeText(book.title)}</h3>
+                <p class="book-author">${sanitizeText(book.author)}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- SEKSI 2: BUKU YANG DITAMBAHKAN USER -->
+      <div id="public-sec-added" class="hidden" style="padding-top:8px;">
+        ${addedBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum menambahkan buku.</p>` : ''}
+        <div class="book-grid-vertical">
+          ${addedBooks.map(book => `
             <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
               <div class="uncropped-cover-container" style="height:150px;">
                 <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
@@ -533,12 +588,24 @@ window.openBookDetail = async function(bookId) {
       .from('comments')
       .select('*, user:profiles(*)', { count: 'exact' })
       .eq('book_id', bookId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
 
     const isAdmin = currentUser?.profile?.role === 'admin'
     const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
-    const topComments = comments ? comments.slice(0, 3) : []
+
+    // ORGANISASI KOMENTAR UTAMA & BALASAN
+    const rootComments = comments ? comments.filter(c => !c.parent_id) : []
+    const repliesMap = {}
+    if (comments) {
+      comments.forEach(c => {
+        if (c.parent_id) {
+          if (!repliesMap[c.parent_id]) repliesMap[c.parent_id] = []
+          repliesMap[c.parent_id].push(c)
+        }
+      })
+    }
+    const topRootComments = rootComments.slice(0, 3)
 
     const detailContent = document.getElementById('detail-content')
     if (detailContent) {
@@ -607,7 +674,7 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
-        <!-- 2 LINK BACA + 1 LINK BELI -->
+        <!-- TOMBOL AKSES BUKU (NAMA TERBARU) -->
         <div class="space-y-2" style="padding-top:8px;">
           ${book.read_link ? `
             <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
@@ -648,10 +715,10 @@ window.openBookDetail = async function(bookId) {
             <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
           </form>
 
-          <!-- LIST PREVIEW 3 KOMENTAR -->
+          <!-- LIST PREVIEW 3 KOMENTAR UTAMA -->
           <div class="space-y-2">
-            ${topComments.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada komentar. Jadi yang pertama berkomentar!</p>` : ''}
-            ${topComments.map(c => renderCommentItemHTML(c, book.id)).join('')}
+            ${topRootComments.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada komentar. Jadi yang pertama berkomentar!</p>` : ''}
+            ${topRootComments.map(c => renderCommentItemHTML(c, book.id, repliesMap[c.id] || [])).join('')}
           </div>
         </div>
       `
@@ -670,13 +737,30 @@ window.openBookDetail = async function(bookId) {
   }
 }
 
-function renderCommentItemHTML(c, bookId) {
+// TOGGLE FORM BALASAN INLINE
+window.toggleReplyForm = function(commentId) {
+  const form = document.getElementById(`reply-form-${commentId}`)
+  if (form) {
+    form.classList.toggle('hidden')
+  }
+}
+
+// SUBMIT BALASAN KOMENTAR
+window.handleReplySubmit = async function(e, bookId, parentId) {
+  e.preventDefault()
+  const input = document.getElementById(`input-reply-form-${parentId}`)
+  if (!input || !input.value.trim()) return
+  await submitComment(bookId, input.value.trim(), parentId)
+}
+
+function renderCommentItemHTML(c, bookId, replies = []) {
   const isMine = currentUser && currentUser.id === c.user_id
   const isAdmin = currentUser?.profile?.role === 'admin'
   const canDelete = isMine || isAdmin
+  const replyInputId = `reply-form-${c.id}`
 
   return `
-    <div style="background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(168,85,247,0.15);">
+    <div style="background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(168,85,247,0.15); margin-bottom:6px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="openUserProfile('${c.user_id}')">
           <img src="${sanitizeText(c.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + c.user_id}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
@@ -697,31 +781,80 @@ function renderCommentItemHTML(c, bookId) {
         </div>
       </div>
       <p style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">${sanitizeText(c.content)}</p>
+
+      <!-- TOMBOL BALAS -->
+      <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+        <button onclick="window.toggleReplyForm('${c.id}')" style="background:transparent; border:none; color:#38bdf8; font-size:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          <i class="bi bi-reply-fill"></i> Balas
+        </button>
+      </div>
+
+      <!-- FORM BALASAN INLINE (HIDDEN DEFAULT) -->
+      <div id="${replyInputId}" class="hidden" style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(168,85,247,0.2);">
+        <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; gap:6px;">
+          <input type="text" id="input-${replyInputId}" placeholder="Balas @${sanitizeText(c.user?.username || 'user')}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
+          <button type="submit" class="btn-galaxy-primary" style="padding:0 10px; font-size:10px; font-weight:700; flex-shrink:0;">Kirim</button>
+        </form>
+      </div>
+
+      <!-- DAFTAR BALASAN (INDENTED CHILD COMMENTS) -->
+      ${replies.length > 0 ? `
+        <div style="margin-top:8px; padding-left:10px; border-left:2px solid rgba(168,85,247,0.3);" class="space-y-2">
+          ${replies.map(r => `
+            <div style="background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:8px; border:1px solid rgba(168,85,247,0.1);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="openUserProfile('${r.user_id}')">
+                  <img src="${sanitizeText(r.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + r.user_id}" style="width:20px; height:20px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+                  <span style="font-size:10px; font-weight:700; color:#f8fafc;">@${sanitizeText(r.user?.username || 'user')}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span style="font-size:8px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
+                  ${(currentUser && (currentUser.id === r.user_id || isAdmin)) ? `
+                    <button onclick="deleteComment('${r.id}', '${bookId}')" title="Hapus Balasan" style="background:transparent; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:2px;">
+                      🗑️
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+              <p style="font-size:10px; color:#cbd5e1; margin-top:2px; line-height:1.3;">${sanitizeText(r.content)}</p>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>
   `
 }
 
-window.submitComment = async function(bookId, content) {
+window.submitComment = async function(bookId, content, parentId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk berkomentar!', 'error')
 
   try {
-    const { error } = await supabase.from('comments').insert({
+    const payload = {
       book_id: bookId,
       user_id: currentUser.id,
       content: content
-    })
+    }
+    if (parentId) payload.parent_id = parentId
+
+    const { error } = await supabase.from('comments').insert(payload)
 
     if (error) throw error
 
-    window.showToast('Komentar berhasil dikirim! 💬')
-    window.openBookDetail(bookId)
+    window.showToast(parentId ? 'Balasan berhasil dikirim! 💬' : 'Komentar berhasil dikirim! 💬')
+    
+    if (activeBookDetailId) window.openBookDetail(activeBookDetailId)
+
+    const modalAll = document.getElementById('modal-all-comments')
+    if (modalAll && !modalAll.classList.contains('hidden')) {
+      window.openAllCommentsModal(bookId)
+    }
   } catch (err) {
     window.showToast('Gagal mengirim komentar: ' + err.message, 'error')
   }
 }
 
 window.deleteComment = function(commentId, bookId) {
-  window.showConfirmModal('Hapus Komentar', 'Apakah kamu yakin ingin menghapus komentar ini?', async () => {
+  window.showConfirmModal('Hapus Komentar', 'Apakah kamu yakin ingin menghapus komentar/balasan ini?', async () => {
     try {
       const { error } = await supabase.from('comments').delete().eq('id', commentId)
       if (error) throw error
@@ -812,12 +945,21 @@ window.openAllCommentsModal = async function(bookId) {
       .from('comments')
       .select('*, user:profiles(*)')
       .eq('book_id', bookId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
 
     if (!comments || comments.length === 0) {
       container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:12px 0;">Belum ada komentar.</p>`
     } else {
-      container.innerHTML = comments.map(c => renderCommentItemHTML(c, bookId)).join('')
+      const rootComments = comments.filter(c => !c.parent_id)
+      const repliesMap = {}
+      comments.forEach(c => {
+        if (c.parent_id) {
+          if (!repliesMap[c.parent_id]) repliesMap[c.parent_id] = []
+          repliesMap[c.parent_id].push(c)
+        }
+      })
+
+      container.innerHTML = rootComments.map(c => renderCommentItemHTML(c, bookId, repliesMap[c.id] || [])).join('')
     }
 
     const fullForm = document.getElementById('form-full-comment')
