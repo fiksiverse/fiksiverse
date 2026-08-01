@@ -12,6 +12,12 @@ let onConfirmCallback = null
 
 let exploreSearchMode = 'books'
 
+// Helper aman untuk sanitasi teks XSS
+function sanitizeText(str) {
+  if (!str) return ''
+  return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(str) : str
+}
+
 function pushHistoryState(type, id = null) {
   history.pushState({ type, id, timestamp: Date.now() }, '')
 }
@@ -149,7 +155,6 @@ window.openUserProfile = async function(userId) {
     let isFollowedBy = false
 
     if (currentUser) {
-      // 1. Cek apakah saya mengikuti user ini
       const { data: followData } = await supabase.from('follows')
         .select('follower_id')
         .eq('follower_id', currentUser.id)
@@ -157,7 +162,6 @@ window.openUserProfile = async function(userId) {
       
       isFollowing = followData && followData.length > 0
 
-      // 2. Cek apakah user ini mengikuti saya
       const { data: followedByData } = await supabase.from('follows')
         .select('follower_id')
         .eq('follower_id', userId)
@@ -172,7 +176,6 @@ window.openUserProfile = async function(userId) {
 
     const books = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
-    // STYLING TOMBOL FOLLOW
     let followBtnText = 'Ikuti (Follow)'
     let followBtnIcon = 'bi-person-plus-fill'
     let followBtnStyle = 'background:linear-gradient(135deg,#a855f7,#6366f1); color:white;'
@@ -191,14 +194,14 @@ window.openUserProfile = async function(userId) {
       <div class="profile-card-hero">
         <div class="profile-bg-banner"></div>
         <div class="profile-avatar-container">
-          <img src="${profile.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + profile.id}" class="profile-avatar-img">
+          <img src="${sanitizeText(profile.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + profile.id}" class="profile-avatar-img">
         </div>
         <div class="profile-info-box">
           <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">
-            ${profile.full_name || 'User'} ${profile.role === 'admin' ? '👑' : ''}
+            ${sanitizeText(profile.full_name) || 'User'} ${profile.role === 'admin' ? '👑' : ''}
           </h3>
-          <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${profile.username || 'user'}</p>
-          <p style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.4;">${profile.bio || 'Belum ada bio.'}</p>
+          <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${sanitizeText(profile.username) || 'user'}</p>
+          <p style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.4;">${sanitizeText(profile.bio) || 'Belum ada bio.'}</p>
 
           <button onclick="toggleFollow('${profile.id}', ${isFollowing})" 
             style="margin:12px auto 0; padding:8px 20px; border-radius:9999px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; border:none; ${followBtnStyle}">
@@ -226,13 +229,13 @@ window.openUserProfile = async function(userId) {
           ${books.map(book => `
             <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
               <div class="uncropped-cover-container" style="height:150px;">
-                <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
-                <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${book.title}">
-                <span class="book-badge">${book.media_type}</span>
+                <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+                <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+                <span class="book-badge">${sanitizeText(book.media_type)}</span>
               </div>
               <div class="book-info">
-                <h3 class="book-title">${book.title}</h3>
-                <p class="book-author">${book.author}</p>
+                <h3 class="book-title">${sanitizeText(book.title)}</h3>
+                <p class="book-author">${sanitizeText(book.author)}</p>
               </div>
             </div>
           `).join('')}
@@ -283,8 +286,9 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
+// BUKA FORM TAMBAH / EDIT BUKU (HAK EDIT DIPERBOLEHKAN UNTUK PENULIS NYA)
 window.openBookFormById = async function(bookId = null) {
-  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan buku!', 'error')
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan/mengedit buku!', 'error')
 
   const isAdmin = currentUser.profile?.role === 'admin'
   const modalForm = document.getElementById('modal-book-form')
@@ -305,6 +309,11 @@ window.openBookFormById = async function(bookId = null) {
     try {
       const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
       if (!book) return
+
+      // Batasan keamanan: Halaman Edit hanya boleh dibuka Admin atau Pemilik Buku
+      if (!isAdmin && book.user_id !== currentUser.id) {
+        return window.showToast('Kamu hanya bisa mengedit buku buatanmu sendiri!', 'error')
+      }
 
       if (titleEl) titleEl.innerText = isAdmin ? 'Edit Buku' : 'Edit Usulan Buku'
       if (tabsEl) tabsEl.style.display = 'none'
@@ -403,6 +412,7 @@ window.deleteBook = function(bookId) {
       loadHomeBooks()
       loadExploreBooks()
       loadProfile()
+      if (currentUser?.profile?.role === 'admin') loadAdminBooksList()
     } catch (err) {
       window.showToast('Gagal menghapus buku: ' + err.message, 'error')
     }
@@ -438,6 +448,7 @@ window.deleteTag = function(id) {
   })
 }
 
+// BUKA DETAIL BUKU (DENGAN SAFE LINKS & TOMBOL EDIT BUAT AUTHOR/ADMIN)
 window.openBookDetail = async function(bookId) {
   try {
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
@@ -455,6 +466,7 @@ window.openBookDetail = async function(bookId) {
     }
 
     const isAdmin = currentUser?.profile?.role === 'admin'
+    const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
 
     const detailContent = document.getElementById('detail-content')
@@ -462,18 +474,18 @@ window.openBookDetail = async function(bookId) {
       detailContent.innerHTML = `
         <div style="display:flex; gap:14px;">
           <div class="uncropped-cover-container" style="width:100px; height:140px; flex-shrink:0;">
-            <img src="${book.cover_url || 'https://via.placeholder.com/120'}" class="uncropped-cover-bg">
-            <img src="${book.cover_url || 'https://via.placeholder.com/120'}" class="uncropped-cover-img">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-img">
           </div>
           <div class="space-y-2" style="flex:1;">
-            <h2 style="font-size:16px; font-weight:800; color:#f8fafc;">${book.title}</h2>
-            <p style="font-size:12px; color:#c084fc; font-weight:600;">${book.author}</p>
+            <h2 style="font-size:16px; font-weight:800; color:#f8fafc;">${sanitizeText(book.title)}</h2>
+            <p style="font-size:12px; color:#c084fc; font-weight:600;">${sanitizeText(book.author)}</p>
             <div style="display:flex; flex-wrap:wrap; gap:4px;">
               <span style="padding:2px 8px; background:rgba(168,85,247,0.2); color:#e9d5ff; font-size:10px; border-radius:9999px; font-weight:700;">
-                ${book.media_type} • ${book.status}
+                ${sanitizeText(book.media_type)} • ${sanitizeText(book.status)}
               </span>
-              ${book.platform ? `<span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">📱 ${book.platform}</span>` : ''}
-              ${book.genre ? `<span style="padding:2px 8px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:10px; border-radius:9999px; font-weight:600;">🏷️ ${book.genre}</span>` : ''}
+              ${book.platform ? `<span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">📱 ${sanitizeText(book.platform)}</span>` : ''}
+              ${book.genre ? `<span style="padding:2px 8px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:10px; border-radius:9999px; font-weight:600;">🏷️ ${sanitizeText(book.genre)}</span>` : ''}
             </div>
             <div style="font-size:12px; color:#fbbf24; padding-top:4px; font-weight:700;">
               <span>⭐ ${book.recommendation_count || 0} Rekomendasi</span>
@@ -485,19 +497,21 @@ window.openBookDetail = async function(bookId) {
           <div>
             <h4 style="font-size:11px; font-weight:700; color:#cbd5e1; margin-bottom:4px;">PREVIEW / SAMPLE</h4>
             <div class="preview-gallery-grid">
-              ${previews.map(url => `<img src="${url}" class="preview-gallery-img" onclick="window.open('${url}', '_blank')">`).join('')}
+              ${previews.map(url => `<img src="${sanitizeText(url)}" class="preview-gallery-img" onclick="window.open('${sanitizeText(url)}', '_blank', 'noopener,noreferrer')">`).join('')}
             </div>
           </div>
         ` : ''}
 
-        ${isAdmin ? `
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding-top:4px;">
+        ${isOwner ? `
+          <div style="display:grid; grid-template-columns:${isAdmin ? '1fr 1fr' : '1fr'}; gap:8px; padding-top:4px;">
             <button onclick="openBookFormById('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(99,102,241,0.2); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); cursor:pointer;">
               ✏️ Edit Buku
             </button>
-            <button onclick="deleteBook('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); cursor:pointer;">
-              🗑️ Hapus Buku
-            </button>
+            ${isAdmin ? `
+              <button onclick="deleteBook('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); cursor:pointer;">
+                🗑️ Hapus Buku
+              </button>
+            ` : ''}
           </div>
         ` : ''}
 
@@ -521,14 +535,15 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
+        <!-- LINK BACA / BELI AMAN DENGAN rel="noopener noreferrer nofollow" -->
         <div class="space-y-2" style="padding-top:8px;">
-          ${book.read_link ? `<a href="${book.read_link}" target="_blank" class="btn-full btn-galaxy-primary" style="text-decoration:none;"><i class="bi bi-book"></i> Baca Sekarang</a>` : ''}
-          ${book.buy_link ? `<a href="${book.buy_link}" target="_blank" class="btn-full btn-galaxy-cyan" style="text-decoration:none;"><i class="bi bi-cart"></i> Beli Sekarang</a>` : ''}
+          ${book.read_link ? `<a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;"><i class="bi bi-book"></i> Baca Sekarang</a>` : ''}
+          ${book.buy_link ? `<a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none;"><i class="bi bi-cart"></i> Beli Sekarang</a>` : ''}
         </div>
 
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
           <h4 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:4px;">Sinopsis</h4>
-          <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${book.synopsis || 'Belum ada sinopsis.'}</p>
+          <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
         </div>
       `
     }
@@ -580,7 +595,6 @@ window.toggleRecommendation = async function(bookId, isRecommended) {
   }
 }
 
-// BUKA MODAL FOLLOWERS / FOLLOWING DENGAN RELASI BARU
 window.openSocialModal = async function(type) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
   const modalSocial = document.getElementById('modal-social')
@@ -609,10 +623,10 @@ window.openSocialModal = async function(type) {
     container.innerHTML = list.map(item => `
       <div class="user-item" onclick="openUserProfile('${item.user?.id}')" style="cursor:pointer; padding:8px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); margin-bottom:6px;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <img src="${item.user?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.user?.id}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+          <img src="${sanitizeText(item.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.user?.id}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
           <div>
-            <h4 style="font-size:12px; font-weight:700; color:#f8fafc;">${item.user?.full_name || 'User'}</h4>
-            <p style="font-size:10px; color:#38bdf8;">@${item.user?.username || 'user'}</p>
+            <h4 style="font-size:12px; font-weight:700; color:#f8fafc;">${sanitizeText(item.user?.full_name) || 'User'}</h4>
+            <p style="font-size:10px; color:#38bdf8;">@${sanitizeText(item.user?.username) || 'user'}</p>
           </div>
         </div>
         <i class="bi bi-chevron-right" style="color:#c084fc; font-size:12px;"></i>
@@ -707,7 +721,7 @@ function setupAuthUI() {
   if (currentUser && authContainer) {
     notifBtn?.classList.remove('hidden')
     authContainer.innerHTML = `
-      <img src="${currentUser.profile?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.id}" 
+      <img src="${sanitizeText(currentUser.profile?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.id}" 
         style="width:34px; height:34px; border-radius:50%; border:2px solid #a855f7; cursor:pointer; object-fit:cover;" id="top-avatar">
     `
     document.getElementById('top-avatar')?.addEventListener('click', () => window.switchTab('tab-profile'))
@@ -924,19 +938,6 @@ function setupBookFormModal() {
         "read_link": "https://kakao.com/solo-leveling",
         "buy_link": "https://tokopedia.com/komik-solo-leveling",
         "synopsis": "Sung Jinwoo pemburu terlemah menjadi terkuat."
-      },
-      {
-        "title": "Omniscient Reader",
-        "author": "sing N song",
-        "platform": "Webtoon",
-        "genre": "Action, Drama",
-        "media_type": "Novel",
-        "status": "Ongoing",
-        "is_published": true,
-        "cover_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
-        "read_link": "https://webtoon.com/orv",
-        "buy_link": "https://shopee.co.id/novel-orv",
-        "synopsis": "Dunia berubah menjadi web novel favoritnya."
       }
     ]
     const bulkInput = document.getElementById('bulk-json-input')
@@ -1134,14 +1135,14 @@ async function loadBanners() {
   if (!slider || !banners || banners.length === 0) return
 
   slider.innerHTML = banners.map(b => `
-    <div class="banner-item" ${b.link_url ? `onclick="window.open('${b.link_url}', '_blank')"` : ''} style="cursor: ${b.link_url ? 'pointer' : 'default'};">
-      <img src="${b.image_url}" class="banner-bg-blur">
-      <img src="${b.image_url}" class="banner-img-front">
+    <div class="banner-item" ${b.link_url ? `onclick="window.open('${sanitizeText(b.link_url)}', '_blank', 'noopener,noreferrer')"` : ''} style="cursor: ${b.link_url ? 'pointer' : 'default'};">
+      <img src="${sanitizeText(b.image_url)}" class="banner-bg-blur">
+      <img src="${sanitizeText(b.image_url)}" class="banner-img-front">
       <div class="banner-overlay"></div>
       <div class="banner-content">
         <span class="banner-tag">Info / Event</span>
-        <h3 style="font-size:15px; font-weight:800; color:white;">${b.title}</h3>
-        <p style="font-size:11px; color:#cbd5e1;">${b.description || ''}</p>
+        <h3 style="font-size:15px; font-weight:800; color:white;">${sanitizeText(b.title)}</h3>
+        <p style="font-size:11px; color:#cbd5e1;">${sanitizeText(b.description) || ''}</p>
       </div>
     </div>
   `).join('')
@@ -1222,7 +1223,7 @@ async function loadExploreTags() {
   container.innerHTML = `
     <button class="filter-btn filter-tag-btn ${selectedTags.length === 0 ? 'active' : ''}" data-tag="all">Semua Tag</button>
     ${allTags.map(t => `
-      <button class="filter-btn filter-tag-btn ${selectedTags.includes(t) ? 'active' : ''}" data-tag="${t}">${t}</button>
+      <button class="filter-btn filter-tag-btn ${selectedTags.includes(t) ? 'active' : ''}" data-tag="${sanitizeText(t)}">${sanitizeText(t)}</button>
     `).join('')}
   `
 
@@ -1267,7 +1268,7 @@ async function renderAdminTagList() {
 
   container.innerHTML = tags.map(t => `
     <span style="display:inline-flex; align-items:center; gap:6px; background:rgba(244,63,94,0.15); color:#fda4af; border:1px solid rgba(244,63,94,0.3); padding:4px 10px; border-radius:9999px; font-size:11px; font-weight:600;">
-      ${t.name}
+      ${sanitizeText(t.name)}
       <i class="bi bi-x-circle-fill" onclick="deleteTag('${t.id}')" style="cursor:pointer; color:#f87171;"></i>
     </span>
   `).join('')
@@ -1289,9 +1290,9 @@ async function loadRecommendedUsersHome() {
 
   container.innerHTML = users.map(user => `
     <div onclick="openUserProfile('${user.id}')" style="min-width:115px; max-width:115px; flex-shrink:0; background:rgba(23, 15, 48, 0.6); border:1px solid rgba(168, 85, 247, 0.25); border-radius:16px; padding:12px 8px; text-align:center; cursor:pointer;">
-      <img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:46px; height:42px; border-radius:50%; object-fit:cover; margin:0 auto 6px; border:2px solid #a855f7;">
-      <h4 style="font-size:11px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.full_name || 'User'}</h4>
-      <p style="font-size:9px; color:#38bdf8; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">@${user.username || 'user'}</p>
+      <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:46px; height:42px; border-radius:50%; object-fit:cover; margin:0 auto 6px; border:2px solid #a855f7;">
+      <h4 style="font-size:11px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(user.full_name) || 'User'}</h4>
+      <p style="font-size:9px; color:#38bdf8; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">@${sanitizeText(user.username) || 'user'}</p>
       <button style="width:100%; padding:4px 0; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:9px; font-weight:700; cursor:pointer;">
         Profil
       </button>
@@ -1313,8 +1314,8 @@ async function renderAdminBannerList() {
   container.innerHTML = banners.map(b => `
     <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); padding:8px 12px; border-radius:10px; border:1px solid rgba(168,85,247,0.2);">
       <div style="display:flex; align-items:center; gap:8px; flex:1; overflow:hidden;">
-        <img src="${b.image_url}" style="width:40px; height:28px; object-fit:cover; border-radius:4px; flex-shrink:0;">
-        <span style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</span>
+        <img src="${sanitizeText(b.image_url)}" style="width:40px; height:28px; object-fit:cover; border-radius:4px; flex-shrink:0;">
+        <span style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</span>
       </div>
       <div style="display:flex; gap:6px; margin-left:8px;">
         <button onclick="openEditBannerForm('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✏️ Edit</button>
@@ -1400,13 +1401,13 @@ async function loadExploreUsers() {
   container.innerHTML = users.map(user => `
     <div onclick="openUserProfile('${user.id}')" class="user-item" style="cursor:pointer; padding:12px;">
       <div style="display:flex; align-items:center; gap:12px;">
-        <img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+        <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
         <div>
           <h4 style="font-size:13px; font-weight:700; color:#f8fafc;">
-            ${user.full_name || 'User'} ${user.role === 'admin' ? '👑' : ''}
+            ${sanitizeText(user.full_name) || 'User'} ${user.role === 'admin' ? '👑' : ''}
           </h4>
-          <p style="font-size:11px; color:#38bdf8;">@${user.username || 'user'}</p>
-          ${user.bio ? `<p style="font-size:10px; color:#cbd5e1; margin-top:2px;">${user.bio.substring(0, 45)}...</p>` : ''}
+          <p style="font-size:11px; color:#38bdf8;">@${sanitizeText(user.username) || 'user'}</p>
+          ${user.bio ? `<p style="font-size:10px; color:#cbd5e1; margin-top:2px;">${sanitizeText(user.bio).substring(0, 45)}...</p>` : ''}
         </div>
       </div>
       <i class="bi bi-chevron-right" style="color:#c084fc;"></i>
@@ -1425,13 +1426,13 @@ function renderBookHorizontal(containerId, books) {
   container.innerHTML = books.map(book => `
     <div onclick="openBookDetail('${book.id}')" class="book-card-horizontal">
       <div class="uncropped-cover-container">
-        <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
-        <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${book.title}">
-        <span class="book-badge">${book.media_type}</span>
+        <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+        <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+        <span class="book-badge">${sanitizeText(book.media_type)}</span>
       </div>
       <div class="book-info">
-        <h3 class="book-title">${book.title}</h3>
-        <p class="book-author">${book.author}</p>
+        <h3 class="book-title">${sanitizeText(book.title)}</h3>
+        <p class="book-author">${sanitizeText(book.author)}</p>
         <div class="book-stats">
           <span>⭐ ${book.recommendation_count || 0}</span>
         </div>
@@ -1451,14 +1452,14 @@ function renderBookVertical(containerId, books) {
   container.innerHTML = books.map(book => `
     <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
       <div class="uncropped-cover-container" style="height:170px;">
-        <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
-        <img src="${book.cover_url || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${book.title}">
-        <span class="book-badge">${book.media_type}</span>
+        <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+        <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+        <span class="book-badge">${sanitizeText(book.media_type)}</span>
       </div>
       <div class="book-info">
-        <h3 class="book-title">${book.title}</h3>
-        <p class="book-author">${book.author}</p>
-        ${book.genre ? `<p style="font-size:10px; color:#c084fc; margin-top:2px;">🏷️ ${book.genre}</p>` : ''}
+        <h3 class="book-title">${sanitizeText(book.title)}</h3>
+        <p class="book-author">${sanitizeText(book.author)}</p>
+        ${book.genre ? `<p style="font-size:10px; color:#c084fc; margin-top:2px;">🏷️ ${sanitizeText(book.genre)}</p>` : ''}
         <div class="book-stats">
           <span>⭐ ${book.recommendation_count || 0} Rekomendasi</span>
         </div>
@@ -1524,16 +1525,16 @@ async function loadProfile() {
     <div class="profile-card-hero">
       <div class="profile-bg-banner"></div>
       <div class="profile-avatar-container">
-        <img src="${p?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.id}" class="profile-avatar-img">
+        <img src="${sanitizeText(p?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.id}" class="profile-avatar-img">
       </div>
       <div class="profile-info-box">
         <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">
-          ${p?.full_name || 'User'} ${isAdmin ? '👑' : ''}
+          ${sanitizeText(p?.full_name) || 'User'} ${isAdmin ? '👑' : ''}
         </h3>
-        <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${p?.username || 'username'}</p>
+        <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${sanitizeText(p?.username) || 'username'}</p>
         
         <p style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.4;">
-          ${p?.bio || 'Belum ada bio.'}
+          ${sanitizeText(p?.bio) || 'Belum ada bio.'}
         </p>
 
         <div style="display:flex; justify-content:center; gap:8px; margin-top:12px;">
@@ -1573,7 +1574,7 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD STATUS USULAN BUKU SAYA -->
+    <!-- CARD STATUS USULAN BUKU SAYA (USER DAPAT EDIT SINI) -->
     <div class="glass-card space-y-3" style="padding:14px;">
       <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
         📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
@@ -1587,17 +1588,20 @@ async function loadProfile() {
             const isAcc = b.is_published !== false
             return `
               <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
-                <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-                  <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                  <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                   <div style="overflow:hidden;">
-                    <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-                    <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+                    <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                    <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
                   </div>
                 </div>
-                <div style="margin-left:8px; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
                   <span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; ${isAcc ? 'background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);' : 'background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);'}">
                     ${isAcc ? '✅ Disetujui' : '⏳ Pending'}
                   </span>
+                  <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    ✏️ Edit
+                  </button>
                 </div>
               </div>
             `
@@ -1657,6 +1661,7 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
+// BUKA LIST DAFTAR BUKU ADMIN (BISA DIKLIK MASUK KE DETAIL MODAL)
 async function loadAdminBooksList() {
   const container = document.getElementById('admin-books-list')
   if (!container) return
@@ -1679,12 +1684,12 @@ async function loadAdminBooksList() {
       ${pendingBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Tidak ada antrean usulan buku.</p>` : ''}
       <div class="space-y-2">
         ${pendingBooks.map(b => `
-          <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
+          <div onclick="if(event.target.tagName !== 'BUTTON') openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
             <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-              <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+              <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
               <div style="overflow:hidden;">
-                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-                <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
               </div>
             </div>
             <div style="display:flex; gap:4px; margin-left:8px;">
@@ -1707,12 +1712,12 @@ async function loadAdminBooksList() {
       <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:6px;">📚 Buku Terbit (${publishedBooks.length})</h5>
       <div class="space-y-2">
         ${publishedBooks.map(b => `
-          <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+          <div onclick="if(event.target.tagName !== 'BUTTON') openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
             <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
-              <img src="${b.cover_url || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+              <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
               <div style="overflow:hidden;">
-                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</h5>
-                <p style="font-size:10px; color:#94a3b8;">${b.author} • <span style="color:#c084fc;">${b.media_type}</span></p>
+                <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
               </div>
             </div>
             <div style="display:flex; gap:4px; margin-left:8px;">
@@ -1749,7 +1754,6 @@ async function checkUnreadNotifications() {
   }
 }
 
-// BUKA LIST NOTIFIKASI DENGAN RELASI BARU
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
@@ -1767,10 +1771,10 @@ async function loadNotifications() {
 
     container.innerHTML = notifs.map(n => `
       <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : ''} style="cursor:pointer;">
-        <img src="${n.actor?.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
+        <img src="${sanitizeText(n.actor?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.actor_id}" class="notif-avatar">
         <div class="notif-text">
-          <b>${n.actor?.full_name || 'Seseorang'}</b> 
-          ${n.type === 'follow' ? 'mulai mengikuti kamu.' : `merekomendasikan buku <b>${n.book?.title || ''}</b>.`}
+          <b>${sanitizeText(n.actor?.full_name) || 'Seseorang'}</b> 
+          ${n.type === 'follow' ? 'mulai mengikuti kamu.' : `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`}
           <span class="notif-time">${new Date(n.created_at).toLocaleDateString('id-ID')}</span>
         </div>
       </div>
