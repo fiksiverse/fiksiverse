@@ -972,9 +972,19 @@ function setupBookFormModal() {
 
     try {
       if (id) {
+        // 🛡️ RE-VERIFIKASI BUKU (JIKA USER BIASA EDIT, KEMBALIKAN KE DRAFT/PENDING)
+        if (!isAdmin) {
+          payload.is_published = false;
+        }
+
         const { error } = await supabase.from('books').update(payload).eq('id', id)
         if (error) throw error
-        window.showToast(isAdmin ? 'Buku berhasil diperbarui!' : 'Usulan buku berhasil diubah!')
+
+        if (isAdmin) {
+          window.showToast('Buku berhasil diperbarui!')
+        } else {
+          window.showToast('Perubahan disimpan! Usulan edit kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
+        }
       } else {
         payload.is_published = isAdmin ? true : false
         const { error } = await supabase.from('books').insert(payload)
