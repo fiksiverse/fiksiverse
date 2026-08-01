@@ -289,7 +289,7 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
 
 // BUKA FORM TAMBAH / EDIT BUKU
 window.openBookFormById = async function(bookId = null) {
-  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk mengusulkan/mengedit buku!', 'error')
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk menambah/mengedit buku!', 'error')
 
   const isAdmin = currentUser.profile?.role === 'admin'
   const modalForm = document.getElementById('modal-book-form')
@@ -318,7 +318,7 @@ window.openBookFormById = async function(bookId = null) {
         return window.showToast('Kamu hanya bisa mengedit buku buatanmu sendiri!', 'error')
       }
 
-      if (titleEl) titleEl.innerText = isAdmin ? 'Edit Buku' : 'Edit Usulan Buku'
+      if (titleEl) titleEl.innerText = isAdmin ? 'Edit Buku' : 'Edit Buku Saya'
       if (tabsEl) tabsEl.style.display = 'none'
 
       document.getElementById('book-id').value = book.id
@@ -340,13 +340,14 @@ window.openBookFormById = async function(bookId = null) {
       if (document.getElementById('preview-img-4')) document.getElementById('preview-img-4').value = previews[3] || ''
 
       if (document.getElementById('book-read-link')) document.getElementById('book-read-link').value = book.read_link || ''
+      if (document.getElementById('book-read-link-2')) document.getElementById('book-read-link-2').value = book.read_link_2 || ''
       if (document.getElementById('book-buy-link')) document.getElementById('book-buy-link').value = book.buy_link || ''
       if (document.getElementById('book-synopsis')) document.getElementById('book-synopsis').value = book.synopsis || ''
     } catch (err) {
       window.showToast('Gagal memuat data buku', 'error')
     }
   } else {
-    if (titleEl) titleEl.innerText = isAdmin ? 'Tambah Buku Baru' : 'Usulkan Buku Baru 🚀'
+    if (titleEl) titleEl.innerText = isAdmin ? 'Tambah Buku Baru' : 'Tambah Buku Baru 🚀'
     if (tabsEl) tabsEl.style.display = isAdmin ? 'flex' : 'none'
     document.getElementById('form-book')?.reset()
     const bId = document.getElementById('book-id')
@@ -382,7 +383,7 @@ window.togglePublishBook = async function(bookId, currentStatus) {
 
 // ADMIN REJECT BUKU
 window.rejectBook = async function(bookId) {
-  const reason = prompt('Masukkan alasan penolakan usulan buku ini:')
+  const reason = prompt('Masukkan alasan penolakan buku ini:')
   if (reason === null) return
 
   if (!reason.trim()) {
@@ -397,11 +398,11 @@ window.rejectBook = async function(bookId) {
 
     if (error) throw error
 
-    window.showToast('Usulan buku telah ditolak dengan alasan.')
+    window.showToast('Penambahan buku telah ditolak dengan alasan.')
     loadAdminBooksList()
     loadProfile()
   } catch (err) {
-    window.showToast('Gagal menolak usulan: ' + err.message, 'error')
+    window.showToast('Gagal menolak penambahan: ' + err.message, 'error')
   }
 }
 
@@ -606,9 +607,23 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
+        <!-- 2 LINK BACA + 1 LINK BELI -->
         <div class="space-y-2" style="padding-top:8px;">
-          ${book.read_link ? `<a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;"><i class="bi bi-book"></i> Baca Sekarang</a>` : ''}
-          ${book.buy_link ? `<a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none;"><i class="bi bi-cart"></i> Beli Sekarang</a>` : ''}
+          ${book.read_link ? `
+            <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
+              <i class="bi bi-book"></i> Baca Narasi
+            </a>
+          ` : ''}
+          ${book.read_link_2 ? `
+            <a href="${sanitizeText(book.read_link_2)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full" style="background:linear-gradient(135deg, #0284c7, #38bdf8); color:white; text-decoration:none; font-weight:700;">
+              <i class="bi bi-phone"></i> Baca Sosmed Au
+            </a>
+          ` : ''}
+          ${book.buy_link ? `
+            <a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none;">
+              <i class="bi bi-cart"></i> Beli Buku Fisik
+            </a>
+          ` : ''}
         </div>
 
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
@@ -676,7 +691,7 @@ function renderCommentItemHTML(c, bookId) {
           ` : ''}
           ${!isMine ? `
             <button onclick="openReportModal('${c.id}', '${bookId}')" title="Laporkan Komentar" style="background:transparent; border:none; color:#f87171; font-size:11px; cursor:pointer; padding:2px;">
-              🚩
+              📫
             </button>
           ` : ''}
         </div>
@@ -1208,6 +1223,7 @@ function setupBookFormModal() {
         "is_published": true,
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
         "read_link": "https://kakao.com/solo-leveling",
+        "read_link_2": "https://x.com/solo_leveling_au",
         "buy_link": "https://tokopedia.com/komik-solo-leveling",
         "synopsis": "Sung Jinwoo pemburu terlemah menjadi terkuat."
       }
@@ -1237,6 +1253,7 @@ function setupBookFormModal() {
       cover_url: document.getElementById('book-cover-url').value,
       preview_images: previewImagesArr,
       read_link: document.getElementById('book-read-link').value || null,
+      read_link_2: document.getElementById('book-read-link-2')?.value || null,
       buy_link: document.getElementById('book-buy-link').value || null,
       synopsis: document.getElementById('book-synopsis').value,
       uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader')
@@ -1255,7 +1272,7 @@ function setupBookFormModal() {
         if (isAdmin) {
           window.showToast('Buku berhasil diperbarui!')
         } else {
-          window.showToast('Perubahan disimpan! Usulan edit kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
+          window.showToast('Perubahan disimpan! Buku kamu akan ditinjau Admin kembali sebelum terbit. ⏳')
         }
       } else {
         payload.user_id = isAdmin ? null : (currentUser?.id || null)
@@ -1267,7 +1284,7 @@ function setupBookFormModal() {
         if (isAdmin) {
           window.showToast('Buku baru berhasil ditambahkan & terbit!')
         } else {
-          window.showToast('Buku berhasil diusulkan! Menunggu persetujuan Admin 🚀')
+          window.showToast('Buku berhasil ditambahkan! Menunggu verifikasi Admin 🚀')
         }
       }
 
@@ -1314,6 +1331,7 @@ function setupBookFormModal() {
           is_published: b.is_published !== undefined ? b.is_published : true,
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
+          read_link_2: b.read_link_2 || null,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
           user_id: isAdmin ? null : (currentUser?.id || null)
@@ -1653,10 +1671,10 @@ async function loadExploreBooks() {
       <div style="grid-column: span 2; background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(56,189,248,0.15)); border: 1px dashed rgba(168,85,247,0.4); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
         <div>
           <h5 style="font-size:12px; font-weight:800; color:#f8fafc;">Gak nemu novel/komik favoritmu?</h5>
-          <p style="font-size:10px; color:#cbd5e1;">Usulkan ke semesta FiksiVerse biar dibaca yang lain!</p>
+          <p style="font-size:10px; color:#cbd5e1;">Tambah ke semesta FiksiVerse biar dibaca yang lain!</p>
         </div>
         <button onclick="openBookFormById(null)" style="padding:7px 12px; background:linear-gradient(135deg,#a855f7,#38bdf8); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0;">
-          + Usulkan
+          + Tambah Buku
         </button>
       </div>
     `
@@ -1830,11 +1848,11 @@ async function loadProfile() {
           
           ${isAdmin ? `
             <button onclick="document.getElementById('admin-pending-section')?.scrollIntoView({ behavior: 'smooth' })" style="padding:6px 14px; background:linear-gradient(135deg,#f59e0b,#d97706); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
-              <i class="bi bi-inbox-fill"></i> Permintaan Usulan ${pendingCount > 0 ? `(${pendingCount})` : ''}
+              <i class="bi bi-inbox-fill"></i> Antrean Verifikasi ${pendingCount > 0 ? `(${pendingCount})` : ''}
             </button>
           ` : `
             <button onclick="openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
-              <i class="bi bi-plus-circle"></i> Usulkan Buku
+              <i class="bi bi-plus-circle"></i> Tambah Buku
             </button>
           `}
         </div>
@@ -1860,15 +1878,15 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD STATUS USULAN BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
+    <!-- CARD DAFTAR BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
     ${!isAdmin ? `
       <div class="glass-card space-y-3" style="padding:14px;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
-          📑 Status Usulan Buku Saya (${userSubmissions ? userSubmissions.length : 0})
+          📚 Daftar Buku Saya (${userSubmissions ? userSubmissions.length : 0})
         </h4>
 
         ${!userSubmissions || userSubmissions.length === 0 ? `
-          <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah mengusulkan buku.</p>
+          <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah menambahkan buku.</p>
         ` : `
           <div class="space-y-2">
             ${userSubmissions.map(b => {
@@ -1877,11 +1895,11 @@ async function loadProfile() {
 
               let badgeHTML = ''
               if (isApproved) {
-                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Disetujui</span>`
+                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Aktif</span>`
               } else if (isRejected) {
                 badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);">❌ Ditolak</span>`
               } else {
-                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Pending</span>`
+                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Verifikasi</span>`
               }
 
               return `
@@ -1896,7 +1914,7 @@ async function loadProfile() {
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
                       ${badgeHTML}
-                      <button onclick="openBookFormById('${b.id}')" title="Edit Usulan Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      <button onclick="openBookFormById('${b.id}')" title="Edit Buku" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                         ✏️ Edit
                       </button>
                     </div>
@@ -2074,9 +2092,9 @@ async function loadAdminBooksList() {
   container.innerHTML = `
     <div id="admin-pending-section">
       <h5 style="font-size:12px; font-weight:800; color:#fbbf24; margin-bottom:6px;">
-        ⏳ Menunggu Persetujuan / Permintaan (${pendingBooks.length})
+        ⏳ Menunggu Verifikasi Admin (${pendingBooks.length})
       </h5>
-      ${pendingBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Tidak ada antrean usulan buku.</p>` : ''}
+      ${pendingBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Tidak ada antrean verifikasi buku.</p>` : ''}
       <div class="space-y-2">
         ${pendingBooks.map(b => `
           <div style="background:rgba(251,191,36,0.08); padding:8px 10px; border-radius:12px; border:1px solid rgba(251,191,36,0.25);">
@@ -2092,7 +2110,7 @@ async function loadAdminBooksList() {
                 <button onclick="togglePublishBook('${b.id}', false)" title="Setujui & Terbit" style="background:#34d399; color:#064e3b; border:none; padding:6px 8px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">
                   ✅ Setujui
                 </button>
-                <button onclick="rejectBook('${b.id}')" title="Tolak Usulan" style="background:#ef4444; color:white; border:none; padding:6px 8px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">
+                <button onclick="rejectBook('${b.id}')" title="Tolak Buku" style="background:#ef4444; color:white; border:none; padding:6px 8px; border-radius:8px; font-size:10px; font-weight:800; cursor:pointer;">
                   ❌ Tolak
                 </button>
                 <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
