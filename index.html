@@ -399,7 +399,7 @@
           <input type="url" id="book-read-link" placeholder="https://..." class="form-input">
         </div>
         <div class="form-group">
-          <label>Link Baca 2 / Versi Sosmed (Twitter AU/TikTok/dll)</label>
+          <label>Link Baca 2 / Versi Sosmed (Twitter AU)</label>
           <input type="url" id="book-read-link-2" placeholder="https://..." class="form-input">
         </div>
         <div class="form-group">
@@ -414,4 +414,219 @@
         <button type="submit" class="btn-full btn-galaxy-primary">Simpan Buku</button>
       </form>
 
-      <!-- FORM 2: BANYAK BUKU (BULK IMPOR
+      <!-- FORM 2: BANYAK BUKU (BULK IMPORT) -->
+      <form id="form-book-bulk" class="space-y-3 hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-size:11px; font-weight:700; color:#cbd5e1;">Paste Data JSON Buku</label>
+          <button id="btn-fill-template" type="button" style="background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer;">
+            📋 Isi Template Contoh
+          </button>
+        </div>
+        <textarea id="bulk-json-input" rows="10" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "platform": "Wattpad",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
+        <p style="font-size:10px; color:#94a3b8; line-height:1.4;">
+          *Atribut wajib: <b>title</b>, <b>author</b>, <b>cover_url</b>. Opsional: <b>platform</b>, <b>genre</b>, <b>media_type</b> (Novel/Komik/Sosmed AU), <b>status</b>, <b>synopsis</b>, <b>read_link</b>, <b>read_link_2</b>, <b>buy_link</b>.
+        </p>
+        <button type="submit" class="btn-full btn-galaxy-primary">🚀 Import Semua Buku</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL BANNER (ADMIN) -->
+  <div id="modal-banner-form" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#38bdf8;">Kelola Banner Slider</span>
+        <button id="close-modal-banner-form" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="form-banner" class="space-y-3">
+        <div class="form-group">
+          <label>Judul Banner</label>
+          <input type="text" id="banner-title" required placeholder="Contoh: Promo Komik Seru" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Deskripsi Singkat</label>
+          <input type="text" id="banner-desc" placeholder="Deskripsi ringkas banner..." class="form-input">
+        </div>
+        <div class="form-group">
+          <label>URL Gambar Banner</label>
+          <input type="url" id="banner-img-url" required placeholder="https://..." class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Link Tujuan (Opsional)</label>
+          <input type="url" id="banner-link-url" placeholder="https://..." class="form-input">
+        </div>
+        <button type="submit" class="btn-full btn-galaxy-cyan">Tambah Banner</button>
+      </form>
+
+      <hr style="border:none; border-top:1px solid rgba(168, 85, 247, 0.2);">
+
+      <div>
+        <h4 style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:8px;">Daftar Banner Aktif</h4>
+        <div id="banner-admin-list" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL KELOLA TAG / GENRE (ADMIN) -->
+  <div id="modal-tag-form" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#f43f5e;">🏷️ Kelola Tag / Genre</span>
+        <button id="close-modal-tag-form" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="form-tag" class="space-y-3">
+        <div class="form-group">
+          <label>Nama Tag / Genre Baru <span style="font-size:10px; color:#94a3b8;">(Maks 20 karakter)</span></label>
+          <input type="text" id="tag-name" maxlength="20" required placeholder="Contoh: Mystery, Sci-Fi" class="form-input">
+        </div>
+        <button type="submit" class="btn-full" style="background:linear-gradient(135deg, #f43f5e, #a855f7); color:white; font-weight:700;">Tambah Tag</button>
+      </form>
+
+      <hr style="border:none; border-top:1px solid rgba(168, 85, 247, 0.2);">
+
+      <div>
+        <h4 style="font-size:12px; font-weight:700; color:#cbd5e1; margin-bottom:8px;">Daftar Tag Kustom</h4>
+        <div id="tag-admin-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FAQ & PANDUAN WEB -->
+  <div id="modal-faq" class="modal-overlay hidden">
+    <div class="modal-box space-y-4" style="max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <span class="modal-title" style="color: #c084fc;">❓ FAQ & Panduan FiksiVerse</span>
+        <button id="close-modal-faq" class="modal-close" onclick="document.getElementById('modal-faq').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🌌 Apa itu FiksiVerse?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">FiksiVerse adalah platform komunitas untuk menemukan, merekomendasikan, dan menyimpan daftar bacaan favoritmu, mulai dari Novel, Komik, hingga Social Media AU (Alternate Universe).</p>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🚀 Bagaimana cara menambahkan buku/AU baru?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Kamu tinggal klik tombol <b>"+ Tambah Buku"</b> di tab <i>Explore</i> atau halaman <i>Profil</i>. Isi data ceritanya, lalu submit. Bukumu akan diverifikasi Admin sebelum tampil penuh di feed publik.</p>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">⏳ Berapa lama proses verifikasi buku?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Biasanya dalam kurun waktu <b>1x24 jam</b>. Begitu diverifikasi, bukumu langsung bisa dicari, di-bookmark, dan direkomendasikan pembaca lain!</p>
+        </div>
+
+        <!-- SYARAT PENGAJUAN & PANDUAN GAMBAR -->
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">📋 Panduan & Syarat Menambahkan Karya</h4>
+          
+          <ul style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0; padding-left: 16px;" class="space-y-2">
+            <li>Wajib sudah login/terdaftar di akun FiksiVerse.</li>
+            <li>Isi nama penulis & judul sesuai karya asli.</li>
+            <li>Bebas konten SARA, spam, dan iklan di luar konteks cerita.</li>
+            
+            <li style="padding-top: 4px;">
+              <b>🖼️ Cara Mengambil URL Gambar Cover:</b>
+              <div style="background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 8px; margin-top: 6px; border: 1px solid rgba(168,85,247,0.2);" class="space-y-2">
+                <div>
+                  <span style="color: #38bdf8; font-weight: 700; font-size: 10px;">🌐 Opsi 1: Dari Google / Web Internet</span>
+                  <ol style="font-size: 10px; color: #94a3b8; margin: 2px 0 0; padding-left: 14px;">
+                    <li>Tekan lama/klik kanan gambar ➡️ pilih <i>"Buka gambar di tab baru"</i>.</li>
+                    <li>Salin link di address bar tab baru tersebut.</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <span style="color: #c084fc; font-weight: 700; font-size: 10px;">📱 Opsi 2: Dari Galeri HP / File Sendiri</span>
+                  <ol style="font-size: 10px; color: #94a3b8; margin: 2px 0 0; padding-left: 14px;">
+                    <li>Buka situs <b>imgbb.com</b> lalu upload foto kamu.</li>
+                    <li>Setelah selesai, salin bagian <b>"Direct Link"</b>.</li>
+                  </ol>
+                </div>
+
+                <p style="font-size: 9px; color: #fbbf24; margin: 4px 0 0;">
+                  *Pastikan ujung link berakhiran <code>.jpg</code>, <code>.png</code>, atau <code>.webp</code>. Cara ini berlaku juga untuk mengganti foto profil!
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="glass-card" style="padding: 12px;">
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🔗 Bagaimana cara membagikan link buku?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Buka detail buku mana saja, lalu klik tombol <b>"Bagikan"</b>. Link akan otomatis tersalin.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOTIFIKASI -->
+  <div id="modal-notif" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title">🔔 Notifikasi</span>
+        <button id="close-modal-notif" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="notif-list-container" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- MODAL SOCIAL -->
+  <div id="modal-social" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span id="social-modal-title" class="modal-title">Pengikut</span>
+        <button id="close-modal-social" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="social-list-container" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- MODAL KONFIRMASI HAPUS (CUSTOM) -->
+  <div id="modal-confirm" class="modal-overlay hidden">
+    <div class="modal-box space-y-4" style="text-align: center; padding: 24px;">
+      <div style="font-size: 42px; color: #f87171;"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <h3 id="confirm-title" style="font-size: 16px; font-weight: 800; color: #f8fafc;">Konfirmasi Hapus</h3>
+      <p id="confirm-message" style="font-size: 12px; color: #94a3b8;">Apakah kamu yakin ingin menghapus data ini?</p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 8px;">
+        <button id="btn-confirm-cancel" class="btn-full" style="background: rgba(255,255,255,0.1); color: #cbd5e1;">Batal</button>
+        <button id="btn-confirm-action" class="btn-full" style="background: #ef4444; color: white;">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION GALAXY -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="tab-home">
+      <i class="bi bi-house-door-fill"></i>
+      <span>Home</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-explore">
+      <i class="bi bi-compass"></i>
+      <span>Explore</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-bookmark">
+      <i class="bi bi-bookmark-heart"></i>
+      <span>Bookmark</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-recommended">
+      <i class="bi bi-star"></i>
+      <span>Rekomendasi</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-profile">
+      <i class="bi bi-person"></i>
+      <span>Profil</span>
+    </button>
+  </nav>
+
+  <script type="module" src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+
+</body>
+</html>
