@@ -19,13 +19,6 @@ function sanitizeText(str) {
   return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(str) : str
 }
 
-// Helper untuk mengekstrak Tweet/Status ID dari URL Twitter/X
-function extractTweetId(url) {
-  if (!url) return null
-  const match = url.match(/(?:twitter\.com|x\.com)\/(?:#!\/)?(\w+)\/status\/(\d+)/i)
-  return match ? match[2] : null
-}
-
 function pushHistoryState(type, id = null) {
   history.pushState({ type, id, timestamp: Date.now() }, '')
 }
@@ -33,92 +26,6 @@ function pushHistoryState(type, id = null) {
 // ==========================================
 // 1. REGISTRASI FUNGSI GLOBAL (WINDOW)
 // ==========================================
-
-// FIKSIVERSE HYBRID CACHED THREAD READER (DATABASE FIRST)
-window.openCleanThreadReader = async function(bookId, tweetUrl, title) {
-  const tweetId = extractTweetId(tweetUrl)
-  if (!tweetId) return window.showToast('Link Twitter/X tidak valid!', 'error')
-
-  const modal = document.getElementById('modal-clean-reader')
-  const titleEl = document.getElementById('clean-reader-title')
-  const bodyContainer = document.getElementById('clean-reader-body')
-
-  if (titleEl) titleEl.innerText = `📖 ${sanitizeText(title)}`
-  
-  // Loading State
-  bodyContainer.innerHTML = `
-    <div style="text-align:center; padding:40px 15px; color:#c084fc;">
-      <i class="bi bi-hourglass-split" style="font-size:28px;"></i>
-      <p style="font-size:13px; font-weight:700; margin-top:10px;">Menyiapkan Naskah AU...</p>
-      <p style="font-size:10px; color:#94a3b8; margin-top:4px;">Memuat cerita FiksiVerse ✨</p>
-    </div>
-  `
-  
-  modal?.classList.remove('hidden')
-  pushHistoryState('modal', 'modal-clean-reader')
-
-  try {
-    let images = []
-
-    // 1. CEK CACHE SUPABASE DULU (Kilat 0.1 Detik)
-    if (bookId) {
-      const { data: book } = await supabase.from('books').select('thread_images').eq('id', bookId).single()
-      if (book && book.thread_images && Array.isArray(book.thread_images) && book.thread_images.length > 0) {
-        images = book.thread_images
-      }
-    }
-
-    // 2. JIKA DI SUPABASE MASIH KOSONG, SEDOT VIA API & AUTO-SAVE KE SUPABASE
-    if (images.length === 0) {
-      const res = await fetch(`/api/unroll?id=${tweetId}`)
-      const data = await res.json()
-
-      if (res.ok && data.images && data.images.length > 0) {
-        images = data.images
-        // Auto-save ke Supabase biar pembaca selanjutnya dapet kilat
-        if (bookId) {
-          await supabase.from('books').update({ thread_images: images }).eq('id', bookId)
-        }
-      }
-    }
-
-    // JIKA BERHASIL DAPET GAMBAR (BAIK DARI SUPABASE MAUPUN API)
-    if (images.length > 0) {
-      let htmlContent = ''
-      images.forEach((imgUrl, idx) => {
-        const num = String(idx + 1).padStart(2, '0')
-        htmlContent += `
-          <div style="border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 16px; margin-bottom: 16px;">
-            <div style="font-size: 14px; font-weight: 800; color: #f8fafc; margin-bottom: 8px;">${num}.</div>
-            <img src="${sanitizeText(imgUrl)}" 
-                 referrerpolicy="no-referrer"
-                 loading="lazy"
-                 style="width: 100%; max-width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 16px rgba(0,0,0,0.4); display: block;" 
-                 alt="Screenshot AU ${num}">
-          </div>
-        `
-      })
-      bodyContainer.innerHTML = htmlContent
-      return
-    }
-
-    throw new Error('Naskah belum di-sync')
-
-  } catch (err) {
-    // FALLBACK IFRAME: Jika API & Supabase gagal/terhalang Cloudflare
-    const embeddedUrl = `https://twitter-thread.com/thread/${tweetId}`
-    bodyContainer.innerHTML = `
-      <div style="margin-bottom: 12px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); padding: 10px 12px; border-radius: 10px; text-align: center;">
-        <span style="font-size: 11px; color: #e9d5ff; font-weight: 700;">✨ Menampilkan Reader Engine</span>
-      </div>
-      <iframe src="${embeddedUrl}" 
-              style="width: 100%; height: 70vh; border: none; border-radius: 12px; background: #fff;"
-              title="Full Thread Reader">
-      </iframe>
-    `
-  }
-}
-
 window.showToast = function(message, type = 'success') {
   const toast = document.getElementById('toast')
   const icon = document.getElementById('toast-icon')
@@ -489,10 +396,6 @@ window.openBookFormById = async function(bookId = null) {
 
       if (document.getElementById('book-read-link')) document.getElementById('book-read-link').value = book.read_link || ''
       if (document.getElementById('book-read-link-2')) document.getElementById('book-read-link-2').value = book.read_link_2 || ''
-      
-      const allowReaderCb = document.getElementById('book-allow-thread-reader')
-      if (allowReaderCb) allowReaderCb.checked = !!book.allow_thread_reader
-
       if (document.getElementById('book-buy-link')) document.getElementById('book-buy-link').value = book.buy_link || ''
       if (document.getElementById('book-synopsis')) document.getElementById('book-synopsis').value = book.synopsis || ''
     } catch (err) {
@@ -504,15 +407,13 @@ window.openBookFormById = async function(bookId = null) {
     document.getElementById('form-book')?.reset()
     const bId = document.getElementById('book-id')
     if (bId) bId.value = ''
-    const allowReaderCb = document.getElementById('book-allow-thread-reader')
-    if (allowReaderCb) allowReaderCb.checked = false
   }
 
   modalForm?.classList.remove('hidden')
   pushHistoryState('modal', 'modal-book-form')
 }
 
-// ADMIN APPROVE BUKU (+ KIRIM NOTIFIKASI BUKU TERBIT)
+// ADMIN APPROVE BUKU (+ KIKIM NOTIFIKASI BUKU TERBIT)
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
@@ -526,9 +427,11 @@ window.togglePublishBook = async function(bookId, currentStatus) {
     if (error) throw error
 
     if (nextStatus) {
+      // Ambil data buku untuk dikirimin notifikasi
       const { data: book } = await supabase.from('books').select('user_id, title').eq('id', bookId).single()
       
       if (book && book.user_id) {
+        // 1. Notif ke pengunggah bahwa bukunya resmi disetujui Admin
         await supabase.from('notifications').insert({
           user_id: book.user_id,
           actor_id: currentUser.id,
@@ -536,6 +439,7 @@ window.togglePublishBook = async function(bookId, currentStatus) {
           book_id: bookId
         })
 
+        // 2. Notif ke pengikut pengunggah bahwa ada buku baru
         const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', book.user_id)
         if (followers && followers.length > 0) {
           const notifs = followers.map(f => ({
@@ -717,6 +621,7 @@ window.openBookDetail = async function(bookId) {
     const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
 
+    // ORGANISASI KOMENTAR UTAMA & BALASAN
     const rootComments = comments ? comments.filter(c => !c.parent_id) : []
     const repliesMap = {}
     if (comments) {
@@ -796,42 +701,20 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
-        <!-- TOMBOL AKSES BUKU (NARASI & SOSMED AU) -->
+        <!-- TOMBOL AKSES BUKU -->
         <div class="space-y-2" style="padding-top:8px;">
-          
-          <!-- 1. TOMBOL BACA VERSI NARASI (LINK 1) -->
           ${book.read_link ? `
-            <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
-              <i class="bi bi-book"></i> Baca Versi Narasi
+            <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
+              <i class="bi bi-book"></i> Baca Buku
             </a>
           ` : ''}
-
-          <!-- 2. TOMBOL BACA VERSI SOSMED AU (LINK 2) -->
-          ${(() => {
-            if (!book.read_link_2) return ''
-
-            const tweetId = extractTweetId(book.read_link_2)
-            const isTwitter = !!tweetId
-            const isAllowedReader = book.allow_thread_reader && isTwitter
-
-            if (isAllowedReader) {
-              return `
-                <button onclick="openCleanThreadReader('${book.id}', '${sanitizeText(book.read_link_2)}', '${sanitizeText(book.title)}')" class="btn-full" style="background:linear-gradient(135deg, #059669, #10b981); color:white; border:none; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-                  <i class="bi bi-phone"></i> Baca Versi Sosmed AU
-                </button>
-              `
-            }
-
-            return `
-              <a href="${sanitizeText(book.read_link_2)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full" style="background:linear-gradient(135deg, #0284c7, #38bdf8); color:white; text-decoration:none; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
-                <i class="bi bi-phone"></i> Baca Versi Sosmed AU (Twitter/X)
-              </a>
-            `
-          })()}
-
-          <!-- 3. TOMBOL BELI BUKU FISIK -->
+          ${book.read_link_2 ? `
+            <a href="${sanitizeText(book.read_link_2)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full" style="background:linear-gradient(135deg, #0284c7, #38bdf8); color:white; text-decoration:none; font-weight:700;">
+              <i class="bi bi-phone"></i> Baca Sosmed Au
+            </a>
+          ` : ''}
           ${book.buy_link ? `
-            <a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <a href="${sanitizeText(book.buy_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-cyan" style="text-decoration:none;">
               <i class="bi bi-cart"></i> Beli Buku Fisik
             </a>
           ` : ''}
@@ -926,12 +809,14 @@ function renderCommentItemHTML(c, bookId, replies = []) {
       </div>
       <p style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">${sanitizeText(c.content)}</p>
 
+      <!-- TOMBOL BALAS -->
       <div style="display:flex; justify-content:flex-end; margin-top:4px;">
         <button onclick="window.toggleReplyForm('${c.id}')" style="background:transparent; border:none; color:#38bdf8; font-size:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
           <i class="bi bi-reply-fill"></i> Balas
         </button>
       </div>
 
+      <!-- FORM BALASAN INLINE (HIDDEN DEFAULT) -->
       <div id="${replyInputId}" class="hidden" style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(168,85,247,0.2);">
         <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; gap:6px;">
           <input type="text" id="input-${replyInputId}" placeholder="Balas @${sanitizeText(c.user?.username || 'user')}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
@@ -939,6 +824,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
         </form>
       </div>
 
+      <!-- DAFTAR BALASAN (INDENTED CHILD COMMENTS) -->
       ${replies.length > 0 ? `
         <div style="margin-top:8px; padding-left:10px; border-left:2px solid rgba(168,85,247,0.3);" class="space-y-2">
           ${replies.map(r => `
@@ -981,7 +867,9 @@ window.submitComment = async function(bookId, content, parentId = null) {
     const { error } = await supabase.from('comments').insert(payload)
     if (error) throw error
 
+    // KELOLA NOTIFIKASI OTOMATIS
     if (parentId) {
+      // 1. Notif Balas Komentar -> ke pembuat komentar induk
       const { data: parentComm } = await supabase.from('comments').select('user_id').eq('id', parentId).single()
       if (parentComm && parentComm.user_id && parentComm.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -992,6 +880,7 @@ window.submitComment = async function(bookId, content, parentId = null) {
         })
       }
     } else {
+      // 2. Notif Komentar Utama -> ke pengunggah/pemilik buku
       const { data: bookData } = await supabase.from('books').select('user_id').eq('id', bookId).single()
       if (bookData && bookData.user_id && bookData.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -1074,6 +963,7 @@ function setupReportModal() {
 
       if (error) throw error
 
+      // Kirim Notifikasi ke Admin
       const { data: adminProfiles } = await supabase.from('profiles').select('id').eq('role', 'admin')
       if (adminProfiles && adminProfiles.length > 0) {
         const notifs = adminProfiles.map(a => ({
@@ -1528,7 +1418,6 @@ function setupBookFormModal() {
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
         "read_link": "https://kakao.com/solo-leveling",
         "read_link_2": "https://x.com/solo_leveling_au",
-        "allow_thread_reader": true,
         "buy_link": "https://tokopedia.com/komik-solo-leveling",
         "synopsis": "Sung Jinwoo pemburu terlemah menjadi terkuat."
       }
@@ -1559,7 +1448,6 @@ function setupBookFormModal() {
       preview_images: previewImagesArr,
       read_link: document.getElementById('book-read-link').value || null,
       read_link_2: document.getElementById('book-read-link-2')?.value || null,
-      allow_thread_reader: document.getElementById('book-allow-thread-reader')?.checked || false,
       buy_link: document.getElementById('book-buy-link').value || null,
       synopsis: document.getElementById('book-synopsis').value,
       uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader')
@@ -1588,6 +1476,7 @@ function setupBookFormModal() {
         if (error) throw error
 
         if (isAdmin) {
+          // Jika Admin tambah buku langsung terbit, kirim notif ke pengikut admin jika ada
           const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', currentUser.id)
           if (followers && followers.length > 0 && newBook) {
             const notifs = followers.map(f => ({
@@ -1648,7 +1537,6 @@ function setupBookFormModal() {
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
           read_link_2: b.read_link_2 || null,
-          allow_thread_reader: b.allow_thread_reader || false,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
           user_id: isAdmin ? null : (currentUser?.id || null)
@@ -2195,6 +2083,7 @@ async function loadProfile() {
       </div>
     </div>
 
+    <!-- CARD DAFTAR BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
     ${!isAdmin ? `
       <div class="glass-card space-y-3" style="padding:14px;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
@@ -2270,6 +2159,7 @@ async function loadProfile() {
           </button>
         </div>
 
+        <!-- SEKSI MODERASI LAPORAN KOMENTAR -->
         <div style="padding-top:10px; border-top:1px dashed rgba(168,85,247,0.3);">
           <h5 style="font-size:12px; font-weight:800; color:#f87171; margin-bottom:8px;">
             🛡️ Kelola Laporan Komentar
@@ -2335,6 +2225,7 @@ async function loadAdminReportsList() {
           <span style="font-size:9px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
         </div>
         
+        <!-- KOTAK KOMENTAR BISA DIKLIK LANGSUNG UNTUK INVESTIGASI KONTEKS -->
         <div onclick="${bookId ? `openBookDetail('${bookId}')` : ''}" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);" 
              title="Klik untuk lihat konteks di buku">
@@ -2345,6 +2236,7 @@ async function loadAdminReportsList() {
           </div>
         </div>
 
+        <!-- TOMBOL AKSI MODERASI -->
         <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;">
           ${bookId ? `
             <button onclick="openBookDetail('${bookId}')" style="padding:4px 10px; background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
@@ -2488,6 +2380,7 @@ async function checkUnreadNotifications() {
   }
 }
 
+// FORMAT PENAMPILAN NOTIFIKASI
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
@@ -2521,6 +2414,7 @@ async function loadNotifications() {
         notifMsg = `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
       }
 
+      // AKSI KLIK NOTIFIKASI: Buka detail buku jika ada `book_id`, atau buka profil actor
       const clickAction = n.book_id 
         ? `onclick="openBookDetail('${n.book_id}')"` 
         : (n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : '')
