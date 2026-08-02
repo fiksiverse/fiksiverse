@@ -17,10 +17,11 @@ export default async function handler(req, res) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    // 1. Ambil buku yang punya link Twitter AU tapi thread_images-nya masih kosong/null
+    // 1. Ambil buku yang PUNYA LINK TWITTER AU + DIIZINKAN USER (allow_thread_reader = true) + thread_images-nya masih kosong/null
     const { data: books, error: fetchError } = await supabase
       .from('books')
       .select('id, read_link_2, title')
+      .eq('allow_thread_reader', true) // <--- TAMBAHAN FILTER INI BIAR CUMA MENGAMBIL BUKU YANG DIIZINKAN
       .not('read_link_2', 'is', null)
       .or('thread_images.is.null,thread_images.eq.[]');
 
@@ -75,4 +76,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Gagal menjalankan cron sync: ' + err.message });
   }
 }
-
