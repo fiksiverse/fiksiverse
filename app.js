@@ -159,7 +159,7 @@ window.openAuFormById = async function(auId = null) {
       document.getElementById('au-id').value = story.id
       document.getElementById('au-title').value = story.title || ''
       document.getElementById('au-author').value = story.author || ''
-      document.getElementById('au-platform').value = story.platform || 'Twitter / X'
+      document.getElementById('au-platform').value = story.platform || 'Instagram / Tiktok / X'
       document.getElementById('au-cover-url').value = story.cover_url || ''
 
       const uploaderSelect = document.getElementById('au-uploader-type')
@@ -174,7 +174,7 @@ window.openAuFormById = async function(auId = null) {
       window.showToast('Gagal memuat data AU', 'error')
     }
   } else {
-    if (titleEl) titleEl.innerText = '📱 Tambah Sosmed AU Baru'
+    if (titleEl) titleEl.innerText = '📱 Tambah AU Baru'
     document.getElementById('au-id').value = ''
     partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput('', 1))
   }
