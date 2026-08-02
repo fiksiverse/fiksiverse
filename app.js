@@ -130,6 +130,7 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
+// TOGGLE TAB PADA PROFIL PUBLIC (DIREKOMENDASIKAN VS DITAMBAHKAN)
 window.switchPublicTab = function(type) {
   const btnRec = document.getElementById('public-tab-rec')
   const btnAdded = document.getElementById('public-tab-added')
@@ -149,6 +150,7 @@ window.switchPublicTab = function(type) {
   }
 }
 
+// BUKA PROFIL AKUN LAIN
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -192,11 +194,13 @@ window.openUserProfile = async function(userId) {
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     
+    // FETCH REKOMENDASI BACAAN USER
     const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
     const recBooks = userRecs ? userRecs.map(r => r.books).filter(b => b && b.is_published !== false) : []
 
-    const { data: userAdded } = await supabase.from('books').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-    const addedBooks = userAdded ? userAdded.filter(b => b.is_published !== false) : []
+    // FETCH BUKU YANG DITAMBAHKAN USER (TERBIT)
+    const { data: userAdded } = await supabase.from('books').select('*').eq('user_id', userId).eq('is_published', true).order('created_at', { ascending: false })
+    const addedBooks = userAdded || []
 
     let followBtnText = 'Ikuti'
     let followBtnIcon = 'bi-person-plus-fill'
@@ -244,6 +248,7 @@ window.openUserProfile = async function(userId) {
         </div>
       </div>
 
+      <!-- TAB SWITCHER: DIREKOMENDASIKAN VS DITAMBAHKAN -->
       <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:12px; padding-bottom:8px; margin-top:8px;">
         <button id="public-tab-rec" onclick="window.switchPublicTab('rec')" class="auth-tab active" type="button" style="font-size:12px; padding:6px 12px;">
           ⭐ Direkomendasikan (${recBooks.length})
@@ -253,6 +258,7 @@ window.openUserProfile = async function(userId) {
         </button>
       </div>
 
+      <!-- SEKSI 1: REKOMENDASI BACAAN USER -->
       <div id="public-sec-rec" style="padding-top:8px;">
         ${recBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum merekomendasikan buku apa pun.</p>` : ''}
         <div class="book-grid-vertical">
@@ -272,6 +278,7 @@ window.openUserProfile = async function(userId) {
         </div>
       </div>
 
+      <!-- SEKSI 2: BUKU YANG DITAMBAHKAN USER -->
       <div id="public-sec-added" class="hidden" style="padding-top:8px;">
         ${addedBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum menambahkan buku.</p>` : ''}
         <div class="book-grid-vertical">
@@ -335,6 +342,7 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
+// BUKA FORM TAMBAH / EDIT BUKU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk menambah/mengedit buku!', 'error')
 
@@ -405,6 +413,7 @@ window.openBookFormById = async function(bookId = null) {
   pushHistoryState('modal', 'modal-book-form')
 }
 
+// ADMIN APPROVE BUKU (+ KIKIM NOTIFIKASI BUKU TERBIT)
 window.togglePublishBook = async function(bookId, currentStatus) {
   try {
     const nextStatus = !currentStatus
@@ -418,9 +427,11 @@ window.togglePublishBook = async function(bookId, currentStatus) {
     if (error) throw error
 
     if (nextStatus) {
+      // Ambil data buku untuk dikirimin notifikasi
       const { data: book } = await supabase.from('books').select('user_id, title').eq('id', bookId).single()
       
       if (book && book.user_id) {
+        // 1. Notif ke pengunggah bahwa bukunya resmi disetujui Admin
         await supabase.from('notifications').insert({
           user_id: book.user_id,
           actor_id: currentUser.id,
@@ -428,6 +439,7 @@ window.togglePublishBook = async function(bookId, currentStatus) {
           book_id: bookId
         })
 
+        // 2. Notif ke pengikut pengunggah bahwa ada buku baru
         const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', book.user_id)
         if (followers && followers.length > 0) {
           const notifs = followers.map(f => ({
@@ -451,6 +463,7 @@ window.togglePublishBook = async function(bookId, currentStatus) {
   }
 }
 
+// ADMIN REJECT BUKU
 window.rejectBook = async function(bookId) {
   const reason = prompt('Masukkan alasan penolakan buku ini:')
   if (reason === null) return
@@ -556,6 +569,7 @@ window.deleteTag = function(id) {
   })
 }
 
+// BUKA DETAIL BUKU
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
@@ -607,6 +621,7 @@ window.openBookDetail = async function(bookId) {
     const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
 
+    // ORGANISASI KOMENTAR UTAMA & BALASAN
     const rootComments = comments ? comments.filter(c => !c.parent_id) : []
     const repliesMap = {}
     if (comments) {
@@ -695,7 +710,7 @@ window.openBookDetail = async function(bookId) {
           ` : ''}
           ${book.read_link_2 ? `
             <a href="${sanitizeText(book.read_link_2)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full" style="background:linear-gradient(135deg, #0284c7, #38bdf8); color:white; text-decoration:none; font-weight:700;">
-              <i class="bi bi-phone"></i> Baca Sosmed AU
+              <i class="bi bi-phone"></i> Baca Sosmed Au
             </a>
           ` : ''}
           ${book.buy_link ? `
@@ -721,11 +736,13 @@ window.openBookDetail = async function(bookId) {
             ` : ''}
           </div>
 
+          <!-- FORM QUICK COMMENT -->
           <form id="form-quick-comment" style="display:flex; gap:6px; margin-bottom:10px;">
             <input type="text" id="quick-comment-input" placeholder="Tulis komentar..." class="form-input" style="font-size:11px; padding:8px 12px;" required>
             <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
           </form>
 
+          <!-- LIST PREVIEW 3 KOMENTAR UTAMA -->
           <div class="space-y-2">
             ${topRootComments.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada komentar. Jadi yang pertama berkomentar!</p>` : ''}
             ${topRootComments.map(c => renderCommentItemHTML(c, book.id, repliesMap[c.id] || [])).join('')}
@@ -747,6 +764,7 @@ window.openBookDetail = async function(bookId) {
   }
 }
 
+// TOGGLE FORM BALASAN INLINE
 window.toggleReplyForm = function(commentId) {
   const form = document.getElementById(`reply-form-${commentId}`)
   if (form) {
@@ -754,6 +772,7 @@ window.toggleReplyForm = function(commentId) {
   }
 }
 
+// SUBMIT BALASAN KOMENTAR
 window.handleReplySubmit = async function(e, bookId, parentId) {
   e.preventDefault()
   const input = document.getElementById(`input-reply-form-${parentId}`)
@@ -790,12 +809,14 @@ function renderCommentItemHTML(c, bookId, replies = []) {
       </div>
       <p style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">${sanitizeText(c.content)}</p>
 
+      <!-- TOMBOL BALAS -->
       <div style="display:flex; justify-content:flex-end; margin-top:4px;">
         <button onclick="window.toggleReplyForm('${c.id}')" style="background:transparent; border:none; color:#38bdf8; font-size:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
           <i class="bi bi-reply-fill"></i> Balas
         </button>
       </div>
 
+      <!-- FORM BALASAN INLINE (HIDDEN DEFAULT) -->
       <div id="${replyInputId}" class="hidden" style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(168,85,247,0.2);">
         <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; gap:6px;">
           <input type="text" id="input-${replyInputId}" placeholder="Balas @${sanitizeText(c.user?.username || 'user')}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
@@ -803,6 +824,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
         </form>
       </div>
 
+      <!-- DAFTAR BALASAN (INDENTED CHILD COMMENTS) -->
       ${replies.length > 0 ? `
         <div style="margin-top:8px; padding-left:10px; border-left:2px solid rgba(168,85,247,0.3);" class="space-y-2">
           ${replies.map(r => `
@@ -830,6 +852,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
   `
 }
 
+// SIMPAN KOMENTAR & KIRIM NOTIFIKASI OTOMATIS
 window.submitComment = async function(bookId, content, parentId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk berkomentar!', 'error')
 
@@ -844,7 +867,9 @@ window.submitComment = async function(bookId, content, parentId = null) {
     const { error } = await supabase.from('comments').insert(payload)
     if (error) throw error
 
+    // KELOLA NOTIFIKASI OTOMATIS
     if (parentId) {
+      // 1. Notif Balas Komentar -> ke pembuat komentar induk
       const { data: parentComm } = await supabase.from('comments').select('user_id').eq('id', parentId).single()
       if (parentComm && parentComm.user_id && parentComm.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -855,6 +880,7 @@ window.submitComment = async function(bookId, content, parentId = null) {
         })
       }
     } else {
+      // 2. Notif Komentar Utama -> ke pengunggah/pemilik buku
       const { data: bookData } = await supabase.from('books').select('user_id').eq('id', bookId).single()
       if (bookData && bookData.user_id && bookData.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -937,6 +963,7 @@ function setupReportModal() {
 
       if (error) throw error
 
+      // Kirim Notifikasi ke Admin
       const { data: adminProfiles } = await supabase.from('profiles').select('id').eq('role', 'admin')
       if (adminProfiles && adminProfiles.length > 0) {
         const notifs = adminProfiles.map(a => ({
@@ -1106,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 function setupMobileBackNavigation() {
-  window.addEventListener('popstate', () => {
+  window.addEventListener('popstate', (e) => {
     const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)')
     if (openModals.length > 0) {
       openModals.forEach(modal => modal.classList.add('hidden'))
@@ -1449,6 +1476,7 @@ function setupBookFormModal() {
         if (error) throw error
 
         if (isAdmin) {
+          // Jika Admin tambah buku langsung terbit, kirim notif ke pengikut admin jika ada
           const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', currentUser.id)
           if (followers && followers.length > 0 && newBook) {
             const notifs = followers.map(f => ({
@@ -1604,7 +1632,7 @@ function setupNotifAndSocialModal() {
 }
 
 // ==========================================
-// 4. DATA FETCHING & RENDERING (SAFE AMAN DATA MUNCUL LAGI)
+// 4. DATA FETCHING & RENDERING
 // ==========================================
 
 async function loadBanners() {
@@ -1807,50 +1835,39 @@ async function renderAdminBannerList() {
 }
 
 async function loadHomeBooks() {
-  // AMBIL SEMUA DULU BARU FILTER MANUAL (ANTI KE-BLOCK RLS SUPABASE)
-  const { data: allBooks } = await supabase.from('books').select('*')
-  const publishedBooks = allBooks ? allBooks.filter(b => b.is_published !== false) : []
-
+  const { data: allBooks } = await supabase.from('books').select('*').eq('is_published', true)
   let editorPicks = []
-  if (publishedBooks.length > 0) {
-    editorPicks = [...publishedBooks].sort(() => 0.5 - Math.random()).slice(0, 6)
+  
+  if (allBooks && allBooks.length > 0) {
+    editorPicks = [...allBooks].sort(() => 0.5 - Math.random()).slice(0, 6)
   }
   renderBookHorizontal('list-popular', editorPicks)
 
-  const recommended = [...publishedBooks].sort((a, b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
+  const { data: recommended } = await supabase.from('books').select('*').eq('is_published', true).order('recommendation_count', { ascending: false }).limit(6)
   renderBookHorizontal('list-recommended-home', recommended)
 
-  const newest = [...publishedBooks].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6)
+  const { data: newest } = await supabase.from('books').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(6)
   renderBookHorizontal('list-newest', newest)
 }
 
 async function loadExploreBooks() {
   const searchInput = document.getElementById('explore-search')
   const searchQuery = searchInput ? searchInput.value : ''
-  
-  const { data: allBooks } = await supabase.from('books').select('*')
-  let books = allBooks ? allBooks.filter(b => b.is_published !== false) : []
+  let query = supabase.from('books').select('*').eq('is_published', true)
 
-  if (currentMediaFilter !== 'all') {
-    books = books.filter(b => b.media_type === currentMediaFilter)
-  }
+  if (currentMediaFilter !== 'all') query = query.eq('media_type', currentMediaFilter)
 
   if (selectedTags.length > 0) {
-    books = books.filter(b => b.genre && selectedTags.some(t => b.genre.toLowerCase().includes(t.toLowerCase())))
+    const orConditions = selectedTags.map(t => `genre.ilike.%${t}%`).join(',')
+    query = query.or(orConditions)
   }
 
   if (searchQuery.trim() !== '') {
-    const q = searchQuery.toLowerCase()
-    books = books.filter(b => 
-      (b.title && b.title.toLowerCase().includes(q)) ||
-      (b.author && b.author.toLowerCase().includes(q)) ||
-      (b.genre && b.genre.toLowerCase().includes(q)) ||
-      (b.platform && b.platform.toLowerCase().includes(q))
-    )
+    query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,genre.ilike.%${searchQuery}%,platform.ilike.%${searchQuery}%`)
   }
 
-  books.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-
+  const { data: books } = await query.order('created_at', { ascending: false })
+  
   const listExplore = document.getElementById('list-explore')
   if (listExplore) {
     renderBookVertical('list-explore', books)
@@ -2066,6 +2083,7 @@ async function loadProfile() {
       </div>
     </div>
 
+    <!-- CARD DAFTAR BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
     ${!isAdmin ? `
       <div class="glass-card space-y-3" style="padding:14px;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
@@ -2141,6 +2159,7 @@ async function loadProfile() {
           </button>
         </div>
 
+        <!-- SEKSI MODERASI LAPORAN KOMENTAR -->
         <div style="padding-top:10px; border-top:1px dashed rgba(168,85,247,0.3);">
           <h5 style="font-size:12px; font-weight:800; color:#f87171; margin-bottom:8px;">
             🛡️ Kelola Laporan Komentar
@@ -2206,6 +2225,7 @@ async function loadAdminReportsList() {
           <span style="font-size:9px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
         </div>
         
+        <!-- KOTAK KOMENTAR BISA DIKLIK LANGSUNG UNTUK INVESTIGASI KONTEKS -->
         <div onclick="${bookId ? `openBookDetail('${bookId}')` : ''}" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);" 
              title="Klik untuk lihat konteks di buku">
@@ -2216,6 +2236,7 @@ async function loadAdminReportsList() {
           </div>
         </div>
 
+        <!-- TOMBOL AKSI MODERASI -->
         <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;">
           ${bookId ? `
             <button onclick="openBookDetail('${bookId}')" style="padding:4px 10px; background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
@@ -2359,6 +2380,7 @@ async function checkUnreadNotifications() {
   }
 }
 
+// FORMAT PENAMPILAN NOTIFIKASI
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
@@ -2392,6 +2414,7 @@ async function loadNotifications() {
         notifMsg = `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
       }
 
+      // AKSI KLIK NOTIFIKASI: Buka detail buku jika ada `book_id`, atau buka profil actor
       const clickAction = n.book_id 
         ? `onclick="openBookDetail('${n.book_id}')"` 
         : (n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : '')
