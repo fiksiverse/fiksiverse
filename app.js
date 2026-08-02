@@ -47,12 +47,13 @@ window.showToast = function(message, type = 'success') {
   setTimeout(() => toast?.classList.remove('show'), 3000)
 }
 
-window.shareBook = function(bookId) {
-  const shareUrl = `${window.location.origin}${window.location.pathname}?book=${bookId}`
+window.shareBook = function(id, isAu = false) {
+  const paramKey = isAu ? 'au' : 'book'
+  const shareUrl = `${window.location.origin}${window.location.pathname}?${paramKey}=${id}`
 
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(shareUrl).then(() => {
-      window.showToast('Link buku berhasil disalin! 📋')
+      window.showToast('Link berhasil disalin! 📋')
     }).catch(() => {
       fallbackCopyText(shareUrl)
     })
@@ -70,7 +71,7 @@ function fallbackCopyText(text) {
   textArea.select()
   try {
     document.execCommand('copy')
-    window.showToast('Link buku berhasil disalin! 📋')
+    window.showToast('Link berhasil disalin! 📋')
   } catch (err) {
     window.showToast('Gagal menyalin link', 'error')
   }
@@ -128,6 +129,241 @@ window.openEditProfileModal = function() {
 
   document.getElementById('modal-edit-profile')?.classList.remove('hidden')
   pushHistoryState('modal', 'modal-edit-profile')
+}
+
+// LOGIC CRUD BUKA/SUBMIT/EDIT/DELETE AU STORIES
+window.openAuFormById = async function(auId = null) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
+
+  const modalForm = document.getElementById('modal-au-form')
+  const titleEl = document.getElementById('au-form-title')
+  const partsContainer = document.getElementById('au-parts-container')
+  const isAdmin = currentUser?.profile?.role === 'admin'
+  const uploaderGroup = document.getElementById('group-au-uploader-type')
+
+  if (uploaderGroup) uploaderGroup.style.display = isAdmin ? 'none' : 'block'
+  
+  document.getElementById('form-au')?.reset()
+  if (partsContainer) partsContainer.innerHTML = ''
+
+  if (auId) {
+    try {
+      const { data: story } = await supabase.from('stories').select('*').eq('id', auId).single()
+      if (!story) return
+
+      if (!isAdmin && story.user_id !== currentUser.id) {
+        return window.showToast('Kamu hanya bisa mengedit AU buatanmu sendiri!', 'error')
+      }
+
+      if (titleEl) titleEl.innerText = '✏️ Edit Sosmed AU'
+      document.getElementById('au-id').value = story.id
+      document.getElementById('au-title').value = story.title || ''
+      document.getElementById('au-author').value = story.author || ''
+      document.getElementById('au-platform').value = story.platform || 'Twitter / X'
+      document.getElementById('au-cover-url').value = story.cover_url || ''
+
+      const uploaderSelect = document.getElementById('au-uploader-type')
+      if (uploaderSelect) uploaderSelect.value = story.uploader_type || 'reader'
+
+      if (story.parts && story.parts.length > 0) {
+        story.parts.forEach(part => partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput(part.url)))
+      } else {
+        partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput())
+      }
+    } catch (err) {
+      window.showToast('Gagal memuat data AU', 'error')
+    }
+  } else {
+    if (titleEl) titleEl.innerText = '📱 Tambah Sosmed AU Baru'
+    document.getElementById('au-id').value = ''
+    partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput())
+  }
+
+  modalForm?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-au-form')
+}
+
+window.createAuPartInput = function(value = '') {
+  return `
+    <div class="au-part-item" style="display:flex; gap:6px;">
+      <input type="url" class="form-input au-part-url" required placeholder="URL Thread / Part" value="${value}" style="font-size:11px;">
+      <button type="button" onclick="this.parentElement.remove()" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:none; padding:0 10px; border-radius:8px; cursor:pointer;"><i class="bi bi-trash"></i></button>
+    </div>
+  `
+}
+
+window.deleteAu = function(auId) {
+  window.showConfirmModal('Hapus AU', 'Apakah kamu yakin ingin menghapus cerita AU ini?', async () => {
+    try {
+      const { error } = await supabase.from('stories').delete().eq('id', auId)
+      if (error) throw error
+      window.showToast('AU berhasil dihapus!')
+      document.getElementById('modal-au-detail')?.classList.add('hidden')
+      loadAuStories()
+      loadProfile()
+    } catch (err) {
+      window.showToast('Gagal menghapus AU: ' + err.message, 'error')
+    }
+  })
+}
+
+// BUKA MODAL DETAIL AU (DESAIN SAMA DENGAN DETAIL BUKU)
+window.openAuDetail = async function(auId) {
+  const modal = document.getElementById('modal-au-detail')
+  const container = document.getElementById('au-detail-content')
+  if (!container) return
+
+  container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center;">Memuat detail AU...</p>`
+  modal?.classList.remove('hidden')
+  pushHistoryState('modal', 'modal-au-detail')
+
+  try {
+    const { data: story, error } = await supabase.from('stories').select('*').eq('id', auId).single()
+    if (error || !story) return window.showToast('Gagal memuat AU', 'error')
+
+    // TAMPILKAN UPLOADER PROFILE
+    let uploaderProfile = null
+    if (story.user_id) {
+      const { data: p } = await supabase.from('profiles').select('id, username, full_name, role').eq('id', story.user_id).single()
+      uploaderProfile = p
+    }
+
+    let uploaderHTML = ''
+    if (!story.user_id || uploaderProfile?.role === 'admin') {
+      uploaderHTML = `<span style="font-size:11px; color:#cbd5e1; display:flex; align-items:center; gap:4px;">👑 Diunggah oleh <b style="color:#f8fafc;">FiksiVerse Official</b></span>`
+    } else if (uploaderProfile) {
+      const isWriter = story.uploader_type === 'writer'
+      const badgeStyle = isWriter 
+        ? 'background:rgba(168,85,247,0.25); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4);' 
+        : 'background:rgba(56,189,248,0.25); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4);'
+      const badgeLabel = isWriter ? '✍️ Writer' : '📖 Reader'
+
+      uploaderHTML = `
+        <span style="font-size:11px; color:#cbd5e1; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          Diunggah oleh <b onclick="openUserProfile('${uploaderProfile.id}')" style="color:#38bdf8; cursor:pointer;">@${sanitizeText(uploaderProfile.username)}</b>
+          <span style="padding:2px 8px; font-size:10px; border-radius:9999px; font-weight:800; ${badgeStyle}">${badgeLabel}</span>
+        </span>
+      `
+    }
+
+    // CHECK BOOKMARK & RECOMMENDATION STATUS UNTUK AU
+    let isBookmarked = false
+    let isRecommended = false
+
+    if (currentUser) {
+      const { data: bm } = await supabase.from('bookmarks').select('id').eq('user_id', currentUser.id).eq('story_id', auId)
+      isBookmarked = bm && bm.length > 0
+
+      const { data: rec } = await supabase.from('recommendations').select('id').eq('user_id', currentUser.id).eq('story_id', auId)
+      isRecommended = rec && rec.length > 0
+    }
+
+    const isAdmin = currentUser?.profile?.role === 'admin'
+    const isOwner = currentUser && (currentUser.id === story.user_id || isAdmin)
+    const parts = story.parts || []
+
+    container.innerHTML = `
+      <div style="display:flex; gap:14px;">
+        <div class="uncropped-cover-container" style="width:100px; height:140px; flex-shrink:0;">
+          <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-bg">
+          <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-img">
+        </div>
+        <div class="space-y-2" style="flex:1;">
+          <h2 style="font-size:16px; font-weight:800; color:#f8fafc;">${sanitizeText(story.title)}</h2>
+          <p style="font-size:12px; color:#c084fc; font-weight:600;">${sanitizeText(story.author)}</p>
+          ${uploaderHTML}
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+            <span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">
+              📱 ${sanitizeText(story.platform || 'Sosmed AU')}
+            </span>
+          </div>
+          <div style="font-size:12px; color:#fbbf24; padding-top:2px; font-weight:700;">
+            <span>⭐ ${story.recommendation_count || 0} Rekomendasi</span>
+          </div>
+        </div>
+      </div>
+
+      ${isOwner ? `
+        <div style="display:grid; grid-template-columns:${isAdmin ? '1fr 1fr' : '1fr'}; gap:8px; padding-top:4px;">
+          <button onclick="openAuFormById('${story.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(99,102,241,0.2); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); cursor:pointer;">
+            ✏️ Edit AU
+          </button>
+          ${isAdmin ? `
+            <button onclick="deleteAu('${story.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); cursor:pointer;">
+              🗑️ Hapus AU
+            </button>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding-top:8px;">
+        <button onclick="toggleAuBookmark('${story.id}', ${isBookmarked})" 
+          style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+          <i class="bi bi-bookmark${isBookmarked ? '-check-fill' : ''}" style="${isBookmarked ? 'color:#f87171' : ''}"></i>
+          ${isBookmarked ? 'Simpan' : 'Bookmark'}
+        </button>
+        
+        <button onclick="toggleAuRecommendation('${story.id}', ${isRecommended})" 
+          style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+          <i class="bi bi-star${isRecommended ? '-fill' : ''}" style="${isRecommended ? 'color:#fbbf24' : ''}"></i>
+          ${isRecommended ? 'Suka' : 'Rekomendasi'}
+        </button>
+
+        <button onclick="shareBook('${story.id}', true)" 
+          style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid rgba(168,85,247,0.3); background:rgba(168,85,247,0.15); color:#e9d5ff; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+          <i class="bi bi-share-fill" style="color:#c084fc;"></i>
+          Bagikan
+        </button>
+      </div>
+
+      <div style="padding-top:10px; border-top:1px solid rgba(168,85,247,0.2);">
+        <h4 style="font-size:12px; font-weight:800; color:#c084fc; margin-bottom:10px;">📖 Pilih Part Thread untuk Membaca (${parts.length} Part):</h4>
+        <div class="space-y-2">
+          ${parts.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada link part yang dimasukkan.</p>` : ''}
+          ${parts.map((p, idx) => `
+            <a href="${sanitizeText(p.url)}" target="_blank" rel="noopener noreferrer" 
+               style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border:1px solid rgba(56,189,248,0.3); padding:10px 14px; border-radius:12px; text-decoration:none; color:#f8fafc; font-size:12px; font-weight:700;">
+              <span>Part ${p.part || (idx + 1)}</span>
+              <span style="font-size:10px; color:#38bdf8; display:flex; align-items:center; gap:4px;">Buka Thread <i class="bi bi-box-arrow-up-right"></i></span>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    `
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:11px; color:#f87171; text-align:center;">Gagal memuat detail AU.</p>`
+  }
+}
+
+// TOGGLE BOOKMARK KHUSUS AU
+window.toggleAuBookmark = async function(auId, isBookmarked) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
+  try {
+    if (isBookmarked) await supabase.from('bookmarks').delete().eq('user_id', currentUser.id).eq('story_id', auId)
+    else await supabase.from('bookmarks').insert({ user_id: currentUser.id, story_id: auId })
+    window.openAuDetail(auId)
+    loadUserBookmarks()
+    loadProfile()
+  } catch(e) {
+    window.showToast('Gagal update bookmark AU', 'error')
+  }
+}
+
+// TOGGLE RECOMMENDATION KHUSUS AU
+window.toggleAuRecommendation = async function(auId, isRecommended) {
+  if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
+  try {
+    if (isRecommended) {
+      await supabase.from('recommendations').delete().eq('user_id', currentUser.id).eq('story_id', auId)
+    } else {
+      await supabase.from('recommendations').insert({ user_id: currentUser.id, story_id: auId })
+    }
+    window.openAuDetail(auId)
+    loadUserRecommendations()
+    loadProfile()
+  } catch(e) {
+    window.showToast('Gagal update rekomendasi AU', 'error')
+  }
 }
 
 // TOGGLE TAB PADA PROFIL PUBLIC (DIREKOMENDASIKAN VS DITAMBAHKAN)
@@ -427,11 +663,9 @@ window.togglePublishBook = async function(bookId, currentStatus) {
     if (error) throw error
 
     if (nextStatus) {
-      // Ambil data buku untuk dikirimin notifikasi
       const { data: book } = await supabase.from('books').select('user_id, title').eq('id', bookId).single()
       
       if (book && book.user_id) {
-        // 1. Notif ke pengunggah bahwa bukunya resmi disetujui Admin
         await supabase.from('notifications').insert({
           user_id: book.user_id,
           actor_id: currentUser.id,
@@ -439,7 +673,6 @@ window.togglePublishBook = async function(bookId, currentStatus) {
           book_id: bookId
         })
 
-        // 2. Notif ke pengikut pengunggah bahwa ada buku baru
         const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', book.user_id)
         if (followers && followers.length > 0) {
           const notifs = followers.map(f => ({
@@ -621,7 +854,6 @@ window.openBookDetail = async function(bookId) {
     const isOwner = currentUser && (currentUser.id === book.user_id || isAdmin)
     const previews = book.preview_images || []
 
-    // ORGANISASI KOMENTAR UTAMA & BALASAN
     const rootComments = comments ? comments.filter(c => !c.parent_id) : []
     const repliesMap = {}
     if (comments) {
@@ -701,7 +933,6 @@ window.openBookDetail = async function(bookId) {
           </button>
         </div>
 
-        <!-- TOMBOL AKSES BUKU -->
         <div class="space-y-2" style="padding-top:8px;">
           ${book.read_link ? `
             <a href="${sanitizeText(book.read_link)}" target="_blank" rel="noopener noreferrer nofollow" class="btn-full btn-galaxy-primary" style="text-decoration:none;">
@@ -725,7 +956,6 @@ window.openBookDetail = async function(bookId) {
           <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
         </div>
 
-        <!-- FITUR KOMENTAR PREVIEW -->
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 style="font-size:12px; font-weight:800; color:#c084fc;">💬 Komentar (${commentCount || 0})</h4>
@@ -736,13 +966,11 @@ window.openBookDetail = async function(bookId) {
             ` : ''}
           </div>
 
-          <!-- FORM QUICK COMMENT -->
           <form id="form-quick-comment" style="display:flex; gap:6px; margin-bottom:10px;">
             <input type="text" id="quick-comment-input" placeholder="Tulis komentar..." class="form-input" style="font-size:11px; padding:8px 12px;" required>
             <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
           </form>
 
-          <!-- LIST PREVIEW 3 KOMENTAR UTAMA -->
           <div class="space-y-2">
             ${topRootComments.length === 0 ? `<p style="font-size:11px; color:#94a3b8;">Belum ada komentar. Jadi yang pertama berkomentar!</p>` : ''}
             ${topRootComments.map(c => renderCommentItemHTML(c, book.id, repliesMap[c.id] || [])).join('')}
@@ -809,14 +1037,12 @@ function renderCommentItemHTML(c, bookId, replies = []) {
       </div>
       <p style="font-size:11px; color:#cbd5e1; margin-top:4px; line-height:1.4;">${sanitizeText(c.content)}</p>
 
-      <!-- TOMBOL BALAS -->
       <div style="display:flex; justify-content:flex-end; margin-top:4px;">
         <button onclick="window.toggleReplyForm('${c.id}')" style="background:transparent; border:none; color:#38bdf8; font-size:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
           <i class="bi bi-reply-fill"></i> Balas
         </button>
       </div>
 
-      <!-- FORM BALASAN INLINE (HIDDEN DEFAULT) -->
       <div id="${replyInputId}" class="hidden" style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(168,85,247,0.2);">
         <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; gap:6px;">
           <input type="text" id="input-${replyInputId}" placeholder="Balas @${sanitizeText(c.user?.username || 'user')}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
@@ -824,7 +1050,6 @@ function renderCommentItemHTML(c, bookId, replies = []) {
         </form>
       </div>
 
-      <!-- DAFTAR BALASAN (INDENTED CHILD COMMENTS) -->
       ${replies.length > 0 ? `
         <div style="margin-top:8px; padding-left:10px; border-left:2px solid rgba(168,85,247,0.3);" class="space-y-2">
           ${replies.map(r => `
@@ -867,9 +1092,7 @@ window.submitComment = async function(bookId, content, parentId = null) {
     const { error } = await supabase.from('comments').insert(payload)
     if (error) throw error
 
-    // KELOLA NOTIFIKASI OTOMATIS
     if (parentId) {
-      // 1. Notif Balas Komentar -> ke pembuat komentar induk
       const { data: parentComm } = await supabase.from('comments').select('user_id').eq('id', parentId).single()
       if (parentComm && parentComm.user_id && parentComm.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -880,7 +1103,6 @@ window.submitComment = async function(bookId, content, parentId = null) {
         })
       }
     } else {
-      // 2. Notif Komentar Utama -> ke pengunggah/pemilik buku
       const { data: bookData } = await supabase.from('books').select('user_id').eq('id', bookId).single()
       if (bookData && bookData.user_id && bookData.user_id !== currentUser.id) {
         await supabase.from('notifications').insert({
@@ -963,7 +1185,6 @@ function setupReportModal() {
 
       if (error) throw error
 
-      // Kirim Notifikasi ke Admin
       const { data: adminProfiles } = await supabase.from('profiles').select('id').eq('role', 'admin')
       if (adminProfiles && adminProfiles.length > 0) {
         const notifs = adminProfiles.map(a => ({
@@ -1121,6 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigation()
   setupAuthModal()
   setupBookFormModal()
+  setupAuFormEvents()
   setupBannerFormModal()
   setupTagFormModal()
   setupNotifAndSocialModal()
@@ -1159,6 +1381,7 @@ async function initAppData() {
   loadBanners().catch(err => console.log('Error banner:', err))
   loadExploreTags().catch(err => console.log('Error explore tags:', err))
   loadRecommendedUsersHome().catch(err => console.log('Error rec users:', err))
+  loadAuStories().catch(err => console.log('Error AU stories:', err))
   loadHomeBooks().catch(err => console.log('Error home books:', err))
   loadExploreBooks().catch(err => console.log('Error explore books:', err))
   loadProfile().catch(err => console.log('Error profile:', err))
@@ -1176,8 +1399,12 @@ async function initAppData() {
 
   const urlParams = new URLSearchParams(window.location.search)
   const sharedBookId = urlParams.get('book')
+  const sharedAuId = urlParams.get('au')
+
   if (sharedBookId) {
     window.openBookDetail(sharedBookId)
+  } else if (sharedAuId) {
+    window.openAuDetail(sharedAuId)
   }
 }
 
@@ -1306,6 +1533,58 @@ function setupAuthModal() {
       window.showToast('Registrasi berhasil! Silakan login.')
     } catch (err) {
       window.showToast('Gagal Pendaftaran: ' + err.message, 'error')
+    }
+  })
+}
+
+function setupAuFormEvents() {
+  const formAu = document.getElementById('form-au')
+  const btnCloseAu = document.getElementById('close-modal-au-form')
+  const btnAddPart = document.getElementById('btn-add-au-part')
+  
+  btnCloseAu?.addEventListener('click', () => document.getElementById('modal-au-form')?.classList.add('hidden'))
+  btnAddPart?.addEventListener('click', () => document.getElementById('au-parts-container')?.insertAdjacentHTML('beforeend', window.createAuPartInput()))
+
+  formAu?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
+
+    const id = document.getElementById('au-id').value
+    const isAdmin = currentUser?.profile?.role === 'admin'
+    const partInputs = document.querySelectorAll('.au-part-url')
+    const partsData = Array.from(partInputs).map((input, index) => ({
+      part: index + 1,
+      url: input.value.trim()
+    })).filter(p => p.url !== '')
+
+    if (partsData.length === 0) return window.showToast('Minimal masukkan 1 URL part!', 'error')
+
+    const payload = {
+      title: document.getElementById('au-title').value,
+      author: document.getElementById('au-author').value,
+      platform: document.getElementById('au-platform').value,
+      cover_url: document.getElementById('au-cover-url').value,
+      parts: partsData,
+      user_id: currentUser.id,
+      uploader_type: isAdmin ? null : (document.getElementById('au-uploader-type')?.value || 'reader')
+    }
+
+    try {
+      if (id) {
+        const { error } = await supabase.from('stories').update(payload).eq('id', id)
+        if (error) throw error
+        window.showToast('AU berhasil diperbarui!')
+      } else {
+        const { error } = await supabase.from('stories').insert(payload)
+        if (error) throw error
+        window.showToast('AU baru berhasil ditambahkan!')
+      }
+      document.getElementById('modal-au-form')?.classList.add('hidden')
+      formAu.reset()
+      loadAuStories()
+      loadProfile()
+    } catch (err) {
+      window.showToast('Gagal menyimpan AU: ' + err.message, 'error')
     }
   })
 }
@@ -1476,7 +1755,6 @@ function setupBookFormModal() {
         if (error) throw error
 
         if (isAdmin) {
-          // Jika Admin tambah buku langsung terbit, kirim notif ke pengikut admin jika ada
           const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', currentUser.id)
           if (followers && followers.length > 0 && newBook) {
             const notifs = followers.map(f => ({
@@ -1634,6 +1912,62 @@ function setupNotifAndSocialModal() {
 // ==========================================
 // 4. DATA FETCHING & RENDERING
 // ==========================================
+
+// FUNGSI LOAD DATA DARI TABEL STORIES (AU CATALOG)
+async function loadAuStories() {
+  const container = document.getElementById('list-au-stories')
+  if (!container) return
+
+  try {
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    if (!stories || stories.length === 0) {
+      container.innerHTML = `<p style="font-size:11px; color:#94a3b8; padding:8px 0;">Belum ada cerita AU.</p>`
+      return
+    }
+
+    container.innerHTML = stories.map(story => {
+      const isAdmin = currentUser?.profile?.role === 'admin'
+      const isOwner = currentUser && (currentUser.id === story.user_id || isAdmin)
+      
+      let actionButtons = ''
+      if (isOwner) {
+        actionButtons = `
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button onclick="event.stopPropagation(); window.openAuFormById('${story.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; flex:1;">✏️ Edit</button>
+            <button onclick="event.stopPropagation(); window.deleteAu('${story.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; flex:1;">🗑️ Hapus</button>
+          </div>
+        `
+      }
+
+      return `
+        <div class="book-card-horizontal" style="display:flex; flex-direction:column;" onclick="openAuDetail('${story.id}')">
+          <div class="uncropped-cover-container">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(story.title)}">
+            <span class="book-badge">${sanitizeText(story.platform || 'AU')}</span>
+          </div>
+          <div class="book-info" style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <h3 class="book-title">${sanitizeText(story.title)}</h3>
+              <p class="book-author">${sanitizeText(story.author)}</p>
+              <div class="book-stats">
+                <span>📖 ${story.parts ? story.parts.length : 0} Part</span>
+              </div>
+            </div>
+            ${actionButtons}
+          </div>
+        </div>
+      `
+    }).join('')
+  } catch (err) {
+    console.error('Gagal memuat AU Stories:', err.message)
+  }
+}
 
 async function loadBanners() {
   const { data: banners } = await supabase.from('banners').select('*').order('created_at', { ascending: false })
@@ -1979,16 +2313,98 @@ function renderBookVertical(containerId, books) {
 
 async function loadUserBookmarks() {
   if (!currentUser) return
-  const { data: bookmarks } = await supabase.from('bookmarks').select('books(*)').eq('user_id', currentUser.id)
-  const validBooks = bookmarks ? bookmarks.map(b => b.books).filter(b => b && b.is_published !== false) : []
-  renderBookVertical('list-bookmark', validBooks)
+  const { data: bookmarks } = await supabase.from('bookmarks').select('books(*), stories(*)').eq('user_id', currentUser.id)
+  
+  const container = document.getElementById('list-bookmark')
+  if (!container) return
+
+  if (!bookmarks || bookmarks.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:#94a3b8; grid-column: span 2; text-align:center; padding:16px 0;">Belum ada bookmark tersimpan.</p>`
+    return
+  }
+
+  container.innerHTML = bookmarks.map(b => {
+    if (b.books && b.books.is_published !== false) {
+      const book = b.books
+      return `
+        <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+          <div class="uncropped-cover-container" style="height:170px;">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+            <span class="book-badge">${sanitizeText(book.media_type)}</span>
+          </div>
+          <div class="book-info">
+            <h3 class="book-title">${sanitizeText(book.title)}</h3>
+            <p class="book-author">${sanitizeText(book.author)}</p>
+          </div>
+        </div>
+      `
+    } else if (b.stories) {
+      const story = b.stories
+      return `
+        <div onclick="openAuDetail('${story.id}')" class="book-card-vertical">
+          <div class="uncropped-cover-container" style="height:170px;">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(story.title)}">
+            <span class="book-badge">${sanitizeText(story.platform || 'Sosmed AU')}</span>
+          </div>
+          <div class="book-info">
+            <h3 class="book-title">${sanitizeText(story.title)}</h3>
+            <p class="book-author">${sanitizeText(story.author)}</p>
+          </div>
+        </div>
+      `
+    }
+    return ''
+  }).join('')
 }
 
 async function loadUserRecommendations() {
   if (!currentUser) return
-  const { data: recs } = await supabase.from('recommendations').select('books(*)').eq('user_id', currentUser.id)
-  const validBooks = recs ? recs.map(r => r.books).filter(b => b && b.is_published !== false) : []
-  renderBookVertical('list-user-recommended', validBooks)
+  const { data: recs } = await supabase.from('recommendations').select('books(*), stories(*)').eq('user_id', currentUser.id)
+  
+  const container = document.getElementById('list-user-recommended')
+  if (!container) return
+
+  if (!recs || recs.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:#94a3b8; grid-column: span 2; text-align:center; padding:16px 0;">Belum ada cerita yang lo rekomendasikan.</p>`
+    return
+  }
+
+  container.innerHTML = recs.map(r => {
+    if (r.books && r.books.is_published !== false) {
+      const book = r.books
+      return `
+        <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+          <div class="uncropped-cover-container" style="height:170px;">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
+            <span class="book-badge">${sanitizeText(book.media_type)}</span>
+          </div>
+          <div class="book-info">
+            <h3 class="book-title">${sanitizeText(book.title)}</h3>
+            <p class="book-author">${sanitizeText(book.author)}</p>
+          </div>
+        </div>
+      `
+    } else if (r.stories) {
+      const story = r.stories
+      return `
+        <div onclick="openAuDetail('${story.id}')" class="book-card-vertical">
+          <div class="uncropped-cover-container" style="height:170px;">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
+            <img src="${sanitizeText(story.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(story.title)}">
+            <span class="book-badge">${sanitizeText(story.platform || 'Sosmed AU')}</span>
+          </div>
+          <div class="book-info">
+            <h3 class="book-title">${sanitizeText(story.title)}</h3>
+            <p class="book-author">${sanitizeText(story.author)}</p>
+          </div>
+        </div>
+      `
+    }
+    return ''
+  }).join('')
 }
 
 async function loadProfile() {
@@ -2019,10 +2435,10 @@ async function loadProfile() {
   const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', currentUser.id)
   const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', currentUser.id)
 
-  const { data: userSubmissions } = await supabase.from('books')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false })
+  const { data: userBooks } = await supabase.from('books').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+  const { data: userStories } = await supabase.from('stories').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+
+  const totalKarya = (userBooks ? userBooks.length : 0) + (userStories ? userStories.length : 0)
 
   let pendingCount = 0
   if (isAdmin) {
@@ -2046,7 +2462,7 @@ async function loadProfile() {
           ${sanitizeText(p?.bio) || 'Belum ada bio.'}
         </p>
 
-        <div style="display:flex; justify-content:center; gap:8px; margin-top:12px;">
+        <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
           <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-pencil-square"></i> Edit Profil
           </button>
@@ -2060,6 +2476,10 @@ async function loadProfile() {
               <i class="bi bi-plus-circle"></i> Tambah Buku
             </button>
           `}
+
+          <button onclick="window.openAuFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#0ea5e9,#3b82f6); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-phone"></i> Tambah AU
+          </button>
         </div>
 
         <div class="profile-stats-grid">
@@ -2083,29 +2503,48 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD DAFTAR BUKU SAYA (CUMA TAMPIL JIKA BUKAN ADMIN) -->
+    <!-- CARD DAFTAR KARYA SAYA (BUKU + AU) -->
     ${!isAdmin ? `
       <div class="glass-card space-y-3" style="padding:14px;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
-          📚 Daftar Buku Saya (${userSubmissions ? userSubmissions.length : 0})
+          📚 Daftar Karya Saya (${totalKarya})
         </h4>
 
-        ${!userSubmissions || userSubmissions.length === 0 ? `
-          <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah menambahkan buku.</p>
+        ${totalKarya === 0 ? `
+          <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah menambahkan buku atau AU.</p>
         ` : `
           <div class="space-y-2">
-            ${userSubmissions.map(b => {
+            <!-- DAFTAR AU SAYA -->
+            ${userStories && userStories.length > 0 ? userStories.map(s => `
+              <div style="background:rgba(56,189,248,0.05); padding:10px; border-radius:12px; border:1px solid rgba(56,189,248,0.25);">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div onclick="openAuDetail('${s.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                    <img src="${sanitizeText(s.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                    <div style="overflow:hidden;">
+                      <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(s.title)}</h5>
+                      <p style="font-size:10px; color:#94a3b8;">${sanitizeText(s.author)} • <span style="color:#38bdf8;">📱 AU (${s.parts ? s.parts.length : 0} Part)</span></p>
+                    </div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
+                    <button onclick="openAuFormById('${s.id}')" title="Edit AU" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      ✏️ Edit
+                    </button>
+                    <button onclick="deleteAu('${s.id}')" title="Hapus AU" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `).join('') : ''}
+
+            <!-- DAFTAR BUKU SAYA -->
+            ${userBooks && userBooks.length > 0 ? userBooks.map(b => {
               const isApproved = b.is_published !== false
               const isRejected = !isApproved && b.rejection_reason
 
-              let badgeHTML = ''
-              if (isApproved) {
-                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3);">✅ Aktif</span>`
-              } else if (isRejected) {
-                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3);">❌ Ditolak</span>`
-              } else {
-                badgeHTML = `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.3);">⏳ Verifikasi</span>`
-              }
+              let badgeHTML = isApproved 
+                ? `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(52,211,153,0.15); color:#34d399;">✅ Aktif</span>`
+                : (isRejected ? `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(239,68,68,0.15); color:#f87171;">❌ Ditolak</span>` : `<span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:9999px; background:rgba(251,191,36,0.15); color:#fbbf24;">⏳ Verifikasi</span>`)
 
               return `
                 <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid ${isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(168,85,247,0.15)'};">
@@ -2124,15 +2563,9 @@ async function loadProfile() {
                       </button>
                     </div>
                   </div>
-
-                  ${isRejected ? `
-                    <div style="font-size:10px; color:#fca5a5; margin-top:8px; background:rgba(239,68,68,0.1); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); line-height:1.4;">
-                      <b>Alasan Penolakan:</b> ${sanitizeText(b.rejection_reason)}
-                    </div>
-                  ` : ''}
                 </div>
               `
-            }).join('')}
+            }).join('') : ''}
           </div>
         `}
       </div>
@@ -2225,7 +2658,6 @@ async function loadAdminReportsList() {
           <span style="font-size:9px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
         </div>
         
-        <!-- KOTAK KOMENTAR BISA DIKLIK LANGSUNG UNTUK INVESTIGASI KONTEKS -->
         <div onclick="${bookId ? `openBookDetail('${bookId}')` : ''}" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);" 
              title="Klik untuk lihat konteks di buku">
@@ -2236,7 +2668,6 @@ async function loadAdminReportsList() {
           </div>
         </div>
 
-        <!-- TOMBOL AKSI MODERASI -->
         <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;">
           ${bookId ? `
             <button onclick="openBookDetail('${bookId}')" style="padding:4px 10px; background:rgba(56,189,248,0.2); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
@@ -2353,7 +2784,7 @@ async function loadAdminBooksList() {
               <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                 ✏️
               </button>
-              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                 🗑️
               </button>
             </div>
@@ -2380,7 +2811,6 @@ async function checkUnreadNotifications() {
   }
 }
 
-// FORMAT PENAMPILAN NOTIFIKASI
 async function loadNotifications() {
   const container = document.getElementById('notif-list-container')
   if (!container || !currentUser) return
@@ -2414,7 +2844,6 @@ async function loadNotifications() {
         notifMsg = `merekomendasikan buku <b>${sanitizeText(n.book?.title) || ''}</b>.`
       }
 
-      // AKSI KLIK NOTIFIKASI: Buka detail buku jika ada `book_id`, atau buka profil actor
       const clickAction = n.book_id 
         ? `onclick="openBookDetail('${n.book_id}')"` 
         : (n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : '')
