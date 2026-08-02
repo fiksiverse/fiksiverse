@@ -1,28 +1,28 @@
 {
-  "id": "fiksiverse-app",
-  "name": "FiksiVerse",
-  "short_name": "FiksiVerse",
-  "description": "Semesta Bacaan Tanpa Batas - Temukan, simpan, dan rekomendasikan novel, komik, dan AU favoritmu di FiksiVerse.",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0f0826",
-  "theme_color": "#a855f7",
-  "lang": "id",
-  "dir": "ltr",
-  "icons": [
+  "id": "fiksiverse-app",[span_39](start_span)[span_39](end_span)
+  "name": "FiksiVerse",[span_40](start_span)[span_40](end_span)
+  "short_name": "FiksiVerse",[span_41](start_span)[span_41](end_span)
+  "description": "Semesta Bacaan Tanpa Batas - Temukan, simpan, dan rekomendasikan novel, komik, dan AU favoritmu di FiksiVerse.",[span_42](start_span)[span_42](end_span)
+  "start_url": "/",[span_43](start_span)[span_43](end_span)
+  "scope": "/",[span_44](start_span)[span_44](end_span)
+  "display": "standalone",[span_45](start_span)[span_45](end_span)
+  "orientation": "portrait",[span_46](start_span)[span_46](end_span)
+  "background_color": "#0f0826",[span_47](start_span)[span_47](end_span)
+  "theme_color": "#a855f7",[span_48](start_span)[span_48](end_span)
+  "lang": "id",[span_49](start_span)[span_49](end_span)
+  "dir": "ltr",[span_50](start_span)[span_50](end_span)
+  "icons": [[span_51](start_span)[span_51](end_span)
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "src": "/icon-192.png",[span_52](start_span)[span_52](end_span)
+      "sizes": "192x192",[span_53](start_span)[span_53](end_span)
+      "type": "image/png",[span_54](start_span)[span_54](end_span)
+      "purpose": "any[span_55](start_span)"[span_55](end_span)
     },
     {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "src": "/icon-512.png",[span_56](start_span)[span_56](end_span)
+      "sizes": "512x512",[span_57](start_span)[span_57](end_span)
+      "type": "image/png",[span_58](start_span)[span_58](end_span)
+      "purpose": "maskable[span_59](start_span)"[span_59](end_span)
     }
   ]
 }
