@@ -298,7 +298,7 @@ main { padding: 16px; }
   border: 1px solid rgba(168, 85, 247, 0.3);
   box-shadow: 0 0 25px rgba(126, 34, 206, 0.25);
   background: #090514;
-  touch-action: pan-y;
+  touch-action: pan-y; /* Membantu scroll vertikal saat swipe horizontal */
 }
 
 .banner-slider {
@@ -553,12 +553,6 @@ main { padding: 16px; }
   align-items: flex-end;
   justify-content: center;
   z-index: 100;
-}
-
-/* PROTEKSI PENTING: BIKIN MODAL BENER-BENER NGUMPET PAS ADA KELAS HIDDEN */
-.modal-overlay.hidden {
-  display: none !important;
-  pointer-events: none !important;
 }
 
 .modal-box {
