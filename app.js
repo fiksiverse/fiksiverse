@@ -166,9 +166,9 @@ window.openAuFormById = async function(auId = null) {
       if (uploaderSelect) uploaderSelect.value = story.uploader_type || 'reader'
 
       if (story.parts && story.parts.length > 0) {
-        story.parts.forEach(part => partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput(part.url)))
+        story.parts.forEach((part, idx) => partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput(part.url, idx + 1)))
       } else {
-        partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput())
+        partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput('', 1))
       }
     } catch (err) {
       window.showToast('Gagal memuat data AU', 'error')
@@ -176,20 +176,32 @@ window.openAuFormById = async function(auId = null) {
   } else {
     if (titleEl) titleEl.innerText = '📱 Tambah Sosmed AU Baru'
     document.getElementById('au-id').value = ''
-    partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput())
+    partsContainer?.insertAdjacentHTML('beforeend', window.createAuPartInput('', 1))
   }
 
   modalForm?.classList.remove('hidden')
   pushHistoryState('modal', 'modal-au-form')
 }
 
-window.createAuPartInput = function(value = '') {
+window.createAuPartInput = function(value = '', partNumber = 1) {
   return `
-    <div class="au-part-item" style="display:flex; gap:6px;">
-      <input type="url" class="form-input au-part-url" required placeholder="URL Thread / Part" value="${value}" style="font-size:11px;">
-      <button type="button" onclick="this.parentElement.remove()" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:none; padding:0 10px; border-radius:8px; cursor:pointer;"><i class="bi bi-trash"></i></button>
+    <div class="au-part-item" style="display:flex; align-items:center; gap:8px;">
+      <span class="au-part-number" style="font-size:11px; font-weight:700; color:#38bdf8; min-width:45px;">Part ${partNumber}</span>
+      <input type="url" class="form-input au-part-url" required placeholder="URL Thread / Part ${partNumber}" value="${value}" style="font-size:11px; flex:1;">
+      <button type="button" onclick="this.parentElement.remove(); window.updateAuPartNumbers();" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:none; padding:8px 10px; border-radius:8px; cursor:pointer;"><i class="bi bi-trash"></i></button>
     </div>
   `
+}
+
+// Helper untuk merender ulang nomor urut Part saat part ditambah/dihapus
+window.updateAuPartNumbers = function() {
+  const items = document.querySelectorAll('#au-parts-container .au-part-item')
+  items.forEach((item, index) => {
+    const numEl = item.querySelector('.au-part-number')
+    const inputEl = item.querySelector('.au-part-url')
+    if (numEl) numEl.innerText = `Part ${index + 1}`
+    if (inputEl) inputEl.placeholder = `URL Thread / Part ${index + 1}`
+  })
 }
 
 window.deleteAu = function(auId) {
@@ -1543,7 +1555,12 @@ function setupAuFormEvents() {
   const btnAddPart = document.getElementById('btn-add-au-part')
   
   btnCloseAu?.addEventListener('click', () => document.getElementById('modal-au-form')?.classList.add('hidden'))
-  btnAddPart?.addEventListener('click', () => document.getElementById('au-parts-container')?.insertAdjacentHTML('beforeend', window.createAuPartInput()))
+  
+  btnAddPart?.addEventListener('click', () => {
+    const container = document.getElementById('au-parts-container')
+    const currentCount = container ? container.children.length + 1 : 1
+    container?.insertAdjacentHTML('beforeend', window.createAuPartInput('', currentCount))
+  })
 
   formAu?.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -2504,7 +2521,7 @@ async function loadProfile() {
     </div>
 
     <!-- CARD DAFTAR KARYA SAYA (BUKU + AU) -->
-    ${!isAdmin ? `
+    ${true ? `
       <div class="glass-card space-y-3" style="padding:14px;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
           📚 Daftar Karya Saya (${totalKarya})
