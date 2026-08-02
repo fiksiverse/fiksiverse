@@ -1,4 +1,4 @@
-// api/unroll.js
+// api/unroll.js (FiksiVerse Full Thread Unroller Engine)
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,45 +16,65 @@ export default async function handler(req, res) {
   const rawImages = [];
 
   try {
-    // 1. Fetch FXTwitter API dari Backend
+    // 1. ENGINE UTAMA: Jina AI Headless Reader (Render JavaScript twitter-thread.com)
     try {
-      const fxRes = await fetch(`https://api.fxtwitter.com/status/${id}`);
-      if (fxRes.ok) {
-        const fxData = await fxRes.json();
-        const tweet = fxData.tweet;
-        if (tweet) {
-          if (tweet.media?.photos) tweet.media.photos.forEach(p => rawImages.push(p.url));
-          if (tweet.media_urls) tweet.media_urls.forEach(u => rawImages.push(u));
-
-          if (tweet.thread && Array.isArray(tweet.thread)) {
-            tweet.thread.forEach(t => {
-              if (t.media?.photos) t.media.photos.forEach(p => rawImages.push(p.url));
-              if (t.media_urls) t.media_urls.forEach(u => rawImages.push(u));
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.log('FX error server-side');
-    }
-
-    // 2. Scrape twitter-thread.com dari Server
-    try {
-      const scrapRes = await fetch(`https://twitter-thread.com/thread/${id}`, {
+      const jinaTarget = `https://r.jina.ai/https://twitter-thread.com/thread/${id}`;
+      const jinaRes = await fetch(jinaTarget, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
       });
-      if (scrapRes.ok) {
-        const html = await scrapRes.text();
-        const matches = html.match(/https:\/\/pbs\.twimg\.com\/media\/[a-zA-Z0-9_-]+(?:\?format=[a-zA-Z]+&name=[a-zA-Z0-9_]+|\.[a-zA-Z]+)?/g) || [];
+
+      if (jinaRes.ok) {
+        const text = await jinaRes.text();
+        const matches = text.match(/https:\/\/pbs\.twimg\.com\/media\/[a-zA-Z0-9_-]+(?:\?format=[a-zA-Z]+&name=[a-zA-Z0-9_]+|\.[a-zA-Z]+)?/g) || [];
         matches.forEach(m => rawImages.push(m));
       }
     } catch (e) {
-      console.log('Scraping error server-side');
+      console.log('Jina Engine 1 Error:', e);
     }
 
-    // 3. Deduplikasi Gambar & Format HD
+    // 2. ENGINE CADANGAN: Jina AI Headless Reader (Render ThreadReaderApp)
+    if (rawImages.length <= 4) {
+      try {
+        const jinaTarget2 = `https://r.jina.ai/https://threadreaderapp.com/thread/${id}.html`;
+        const jinaRes2 = await fetch(jinaTarget2);
+
+        if (jinaRes2.ok) {
+          const text2 = await jinaRes2.text();
+          const matches2 = text2.match(/https:\/\/pbs\.twimg\.com\/media\/[a-zA-Z0-9_-]+(?:\?format=[a-zA-Z]+&name=[a-zA-Z0-9_]+|\.[a-zA-Z]+)?/g) || [];
+          matches2.forEach(m => rawImages.push(m));
+        }
+      } catch (e) {
+        console.log('Jina Engine 2 Error:', e);
+      }
+    }
+
+    // 3. ENGINE FALLBACK: FXTwitter API
+    if (rawImages.length === 0) {
+      try {
+        const fxRes = await fetch(`https://api.fxtwitter.com/status/${id}`);
+        if (fxRes.ok) {
+          const fxData = await fxRes.json();
+          const tweet = fxData.tweet;
+          if (tweet) {
+            if (tweet.media?.photos) tweet.media.photos.forEach(p => rawImages.push(p.url));
+            if (tweet.media_urls) tweet.media_urls.forEach(u => rawImages.push(u));
+
+            if (tweet.thread && Array.isArray(tweet.thread)) {
+              tweet.thread.forEach(t => {
+                if (t.media?.photos) t.media.photos.forEach(p => rawImages.push(p.url));
+                if (t.media_urls) t.media_urls.forEach(u => rawImages.push(u));
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.log('FX API Error:', e);
+      }
+    }
+
+    // Deduplikasi Gambar & Format HD
     const imageMap = new Map();
     rawImages.forEach(url => {
       const match = url.match(/media\/([a-zA-Z0-9_-]+)/);
@@ -69,7 +89,7 @@ export default async function handler(req, res) {
     const images = Array.from(imageMap.values());
 
     if (images.length === 0) {
-      return res.status(404).json({ error: 'Gambar naskah tidak ditemukan.' });
+      return res.status(404).json({ error: 'Naskah AU tidak ditemukan atau akun diprivat.' });
     }
 
     return res.status(200).json({ success: true, count: images.length, images });
@@ -78,4 +98,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Gagal memproses thread dari server.' });
   }
 }
-
