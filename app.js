@@ -96,6 +96,21 @@ window.shareBook = function(id) {
   }
 }
 
+// FUNGSI SHARE PROFIL
+window.shareProfile = function(userId) {
+  const shareUrl = `${window.location.origin}${window.location.pathname}?user=${userId}`
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      window.showToast('Link profil berhasil disalin! 📋')
+    }).catch(() => {
+      fallbackCopyText(shareUrl)
+    })
+  } else {
+    fallbackCopyText(shareUrl)
+  }
+}
+
 function fallbackCopyText(text) {
   const textArea = document.createElement("textarea")
   textArea.value = text
@@ -767,7 +782,7 @@ window.openAllCommentsModal = async function(bookId) {
   }
 }
 
-// PROFIL PUBLIK PENGGUNA LAIN + TOMBOL TITIK TIGA DIPINGGIR UJUNG KANAN UNTUK LAPOR USER
+// PROFIL PUBLIK PENGGUNA LAIN + DROPDOWN MENU TITIK TIGA (BAGIKAN & LAPORAN)
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -833,12 +848,34 @@ window.openUserProfile = async function(userId) {
 
     container.innerHTML = `
       <div class="profile-card-hero" style="position:relative;">
-        <!-- TOMBOL TITIK TIGA DI DIPINGGIR UJUNG KANAN PROFIL USER -->
-        ${currentUser ? `
-          <button onclick="openReportModal('user', '${profile.id}')" title="Laporkan Pengguna" style="position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">
-            <i class="bi bi-three-dots-vertical" style="font-size:12px;"></i>
+        <!-- MENU DROPDOWN TITIK TIGA DI PINGGIR UJUNG KANAN PROFIL USER -->
+        <div style="position:absolute; top:12px; right:12px; z-index:10;">
+          <button onclick="document.getElementById('user-menu-dropdown').classList.toggle('hidden')" 
+                  title="Opsi" 
+                  style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <i class="bi bi-three-dots-vertical" style="font-size:13px;"></i>
           </button>
-        ` : ''}
+
+          <div id="user-menu-dropdown" class="hidden" 
+               style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+            
+            <button onclick="shareProfile('${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+                    style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                    onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
+                    onmouseout="this.style.background='transparent'">
+              <i class="bi bi-share-fill" style="color:#38bdf8;"></i> Bagikan
+            </button>
+
+            ${currentUser ? `
+              <button onclick="openReportModal('user', '${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+                      style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                      onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
+                      onmouseout="this.style.background='transparent'">
+                <i class="bi bi-exclamation-triangle-fill"></i> Laporkan
+              </button>
+            ` : ''}
+          </div>
+        </div>
 
         <div class="profile-bg-banner"></div>
         <div class="profile-avatar-container">
@@ -2262,10 +2299,17 @@ async function initAppData() {
     checkUnreadNotifications()
   }
 
+  // PENANGANAN URL PARAMETER (SHARE BUKU & SHARE PROFIL)
   const urlParams = new URLSearchParams(window.location.search)
+  
   const sharedBookId = urlParams.get('book') || urlParams.get('au')
   if (sharedBookId) {
     window.openBookDetail(sharedBookId)
+  }
+
+  const sharedUserId = urlParams.get('user')
+  if (sharedUserId) {
+    window.openUserProfile(sharedUserId)
   }
 }
 
