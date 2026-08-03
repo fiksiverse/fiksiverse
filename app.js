@@ -19,7 +19,7 @@ function sanitizeText(str) {
   return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(str) : str
 }
 
-// 1. DUKUNGAN NAVIGASI HP (TOMBOL BACK Ponsel)
+// DUKUNGAN NAVIGASI HP (TOMBOL BACK)
 function pushHistoryState(type, id = null) {
   history.pushState({ type, id, timestamp: Date.now() }, '')
 }
@@ -39,7 +39,7 @@ function setupMobileBackNavigation() {
   })
 }
 
-// 3. WHITELIST DOMAIN TERPERCAYA UNTUK VALIDASI PASTE LINK BACA
+// WHITELIST DOMAIN TERPERCAYA
 const TRUSTED_DOMAINS = [
   'x.com', 'twitter.com', 'instagram.com', 'tiktok.com', 
   'threads.net', 'wattpad.com', 'webtoon.com', 'kakao.com', 
@@ -59,7 +59,7 @@ function isTrustedUrl(urlStr) {
 }
 
 // ==========================================
-// 1. REGISTRASI FUNGSI GLOBAL (WINDOW)
+// REGISTRASI FUNGSI GLOBAL (WINDOW)
 // ==========================================
 window.showToast = function(message, type = 'success') {
   const toast = document.getElementById('toast')
@@ -165,7 +165,7 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
-// 1. MODAL FORM BUKU / AU TERPADU
+// MODAL FORM BUKU / AU TERPADU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
@@ -285,7 +285,7 @@ window.deleteBook = function(bookId) {
   })
 }
 
-// 6 & 7. BUKA DETAIL BUKU / SOSMED AU + TOMBOL TITIK TIGA DI DIPINGGIR UJUNG
+// BUKA DETAIL BUKU / SOSMED AU + TOMBOL TITIK TIGA DI DIPINGGIR UJUNG
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
@@ -658,7 +658,7 @@ window.deleteComment = function(commentId, bookId) {
   })
 }
 
-// FUNGSI LAPORAN TERPADU
+// FUNGSI LAPORAN TERPADU DENGAN FIX DATABASE
 window.openReportModal = function(targetType, targetId, contextId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
@@ -700,13 +700,10 @@ function setupReportModal() {
     try {
       const payload = {
         reporter_id: currentUser.id,
-        reason: reason
-      }
-
-      if (targetType === 'comment') {
-        payload.comment_id = targetId
-      } else {
-        payload.comment_id = null
+        reason: reason,
+        comment_id: targetType === 'comment' ? targetId : null,
+        book_id: targetType === 'book' ? targetId : null,
+        user_id: targetType === 'user' ? targetId : null
       }
 
       const { error } = await supabase.from('comment_reports').insert(payload)
@@ -766,7 +763,7 @@ window.openAllCommentsModal = async function(bookId) {
       })
     }
   } catch (err) {
-    container.innerHTML = `<p style="font-size:11px; color:#f8f71; text-align:center;">Gagal memuat komentar.</p>`
+    container.innerHTML = `<p style="font-size:11px; color:#f87171; text-align:center;">Gagal memuat komentar.</p>`
   }
 }
 
@@ -1023,7 +1020,7 @@ window.openSocialModal = async function(type) {
   }
 }
 
-// 5. MEMUAT CARD POPULER MINGGU INI DI HOME
+// MEMUAT CARD POPULER MINGGU INI DI HOME
 async function loadHomeBooks() {
   const { data: allBooks } = await supabase.from('books').select('*')
   if (!allBooks || allBooks.length === 0) return
@@ -1803,7 +1800,7 @@ async function loadAdminReportsList() {
 
   const { data: reports, error } = await supabase
     .from('comment_reports')
-    .select('*, comment:comments(*, user:profiles(*), book:books(*)), reporter:profiles!comment_reports_reporter_id_fkey(*)')
+    .select('*, comment:comments(*, user:profiles(*), book:books(*)), book:books(*), reported_user:profiles!comment_reports_user_id_fkey(*), reporter:profiles!comment_reports_reporter_id_fkey(*)')
     .order('created_at', { ascending: false })
 
   if (error || !reports || reports.length === 0) {
@@ -1812,51 +1809,82 @@ async function loadAdminReportsList() {
   }
 
   container.innerHTML = reports.map(r => {
-    const isCommentReport = !!r.comment_id
-    const commentData = r.comment
-    const bookId = commentData?.book_id || commentData?.book?.id
+    const isComment = !!r.comment_id
+    const isBook = !!r.book_id
+    const isUser = !!r.user_id
+
+    const targetBookId = r.book_id || r.comment?.book_id || r.comment?.book?.id
+    const targetUserId = r.user_id || r.comment?.user_id
+
+    let badgeHTML = ''
+    let tkpHTML = ''
+
+    if (isComment) {
+      badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(168,85,247,0.2); color:#c084fc;">💬 KOMENTAR</span>`
+      tkpHTML = `
+        <div onclick="${targetBookId ? `openBookDetail('${targetBookId}')` : ''}" 
+             style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);">
+          <b style="color:#a855f7;">@${sanitizeText(r.comment?.user?.username || 'user')}:</b> "${sanitizeText(r.comment?.content || '[Telah dihapus]')}"
+          <div style="font-size:9px; color:#38bdf8; margin-top:4px; display:flex; align-items:center; justify-content:space-between;">
+            <span>📖 Cerita: <b>${sanitizeText(r.comment?.book?.title || '-')}</b></span>
+            <span style="color:#c084fc; font-weight:700;">Buka TKP 🔍</span>
+          </div>
+        </div>
+      `
+    } else if (isBook) {
+      badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(56,189,248,0.2); color:#38bdf8;">📖 CERITA/KARYA</span>`
+      tkpHTML = `
+        <div onclick="openBookDetail('${r.book_id}')" 
+             style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(56,189,248,0.3); display:flex; align-items:center; justify-content:space-between;">
+          <span>📖 Judul: <b style="color:#f8fafc;">${sanitizeText(r.book?.title || 'Detail Cerita')}</b></span>
+          <span style="color:#38bdf8; font-size:10px; font-weight:700;">Cek Karya 🔍</span>
+        </div>
+      `
+    } else if (isUser) {
+      badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(251,191,36,0.2); color:#fbbf24;">👤 AKUN USER</span>`
+      tkpHTML = `
+        <div onclick="openUserProfile('${r.user_id}')" 
+             style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(251,191,36,0.3); display:flex; align-items:center; justify-content:space-between;">
+          <span>👤 User: <b style="color:#fbbf24;">@${sanitizeText(r.reported_user?.username || 'user')}</b></span>
+          <span style="color:#fbbf24; font-size:10px; font-weight:700;">Cek Profil 🔍</span>
+        </div>
+      `
+    }
 
     return `
       <div style="background:rgba(239,68,68,0.08); padding:10px; border-radius:12px; border:1px solid rgba(239,68,68,0.25);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
           <div>
-            <p style="font-size:11px; color:#f87171; font-weight:700;">⚠️ Pelapor: @${sanitizeText(r.reporter?.username || 'user')}</p>
-            <p style="font-size:10px; color:#cbd5e1; margin-top:2px;"><b>Alasan:</b> ${sanitizeText(r.reason)}</p>
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+              ${badgeHTML}
+              <span style="font-size:11px; color:#f87171; font-weight:700;">Pelapor: @${sanitizeText(r.reporter?.username || 'user')}</span>
+            </div>
+            <p style="font-size:10px; color:#cbd5e1;"><b>Alasan:</b> ${sanitizeText(r.reason)}</p>
           </div>
           <span style="font-size:9px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
         </div>
         
-        ${isCommentReport ? `
-          <div onclick="${bookId ? `openBookDetail('${bookId}')` : ''}" 
-               style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);" 
-               title="Klik untuk lihat TKP">
-            <b style="color:#a855f7;">@${sanitizeText(commentData?.user?.username || 'user')}:</b> "${sanitizeText(commentData?.content || '[Telah dihapus]')}"
-            <div style="font-size:9px; color:#38bdf8; margin-top:4px; display:flex; align-items:center; justify-content:space-between;">
-              <span>📖 Cerita: <b>${sanitizeText(commentData?.book?.title || '-')}</b></span>
-              <span style="color:#c084fc; font-weight:700;">Buka TKP 🔍</span>
-            </div>
-          </div>
-        ` : ''}
+        ${tkpHTML}
 
         <div style="display:flex; gap:4px; margin-top:8px; justify-content:flex-end; flex-wrap:wrap;">
           <button onclick="dismissReport('${r.id}')" style="padding:4px 8px; background:rgba(255,255,255,0.1); color:#cbd5e1; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
             Abaikan
           </button>
-          
-          ${isCommentReport ? `
+
+          ${isComment ? `
             <button onclick="deleteReportedComment('${r.comment_id}', '${r.id}')" style="padding:4px 8px; background:#ef4444; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Hapus Komentar
             </button>
           ` : ''}
 
-          ${bookId ? `
-            <button onclick="adminDeleteBook('${bookId}', '${r.id}')" style="padding:4px 8px; background:#dc2626; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+          ${targetBookId ? `
+            <button onclick="adminDeleteBook('${targetBookId}', '${r.id}')" style="padding:4px 8px; background:#dc2626; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Hapus Cerita
             </button>
           ` : ''}
 
-          ${commentData?.user_id ? `
-            <button onclick="adminBlockUser('${commentData.user_id}', '${r.id}')" style="padding:4px 8px; background:#991b1b; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+          ${targetUserId ? `
+            <button onclick="adminBlockUser('${targetUserId}', '${r.id}')" style="padding:4px 8px; background:#991b1b; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Blokir User
             </button>
           ` : ''}
