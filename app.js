@@ -39,12 +39,14 @@ function setupMobileBackNavigation() {
   })
 }
 
-// WHITELIST DOMAIN TERPERCAYA
+// WHITELIST DOMAIN TERPERCAYA (LENGKAP DENGAN WEBTOONS.COM)
 const TRUSTED_DOMAINS = [
   'x.com', 'twitter.com', 'instagram.com', 'tiktok.com', 
-  'threads.net', 'wattpad.com', 'webtoon.com', 'kakao.com', 
-  'tapas.io', 'fizzo.org', 'medium.com', 'youtube.com', 
-  'archiveofourown.org', 'ipusnas.perpusnas.go.id', 'play.google.com'
+  'threads.net', 'wattpad.com', 'webtoon.com', 'webtoons.com', // <-- DITAMBAHKAN WEBTOONS.COM
+  'kakao.com', 'kakaopage.com', 'tapas.io', 'fizzo.org', 
+  'medium.com', 'youtube.com', 'archiveofourown.org', 
+  'ipusnas.perpusnas.go.id', 'play.google.com', 'gramedia.com',
+  'manga-plus.org', 'bilibilicomics.com'
 ]
 
 function isTrustedUrl(urlStr) {
