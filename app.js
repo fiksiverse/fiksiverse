@@ -1689,7 +1689,27 @@ async function loadProfile() {
   const totalKarya = userBooks ? userBooks.length : 0
 
   tabProfile.innerHTML = `
-    <div class="profile-card-hero">
+        <div class="profile-card-hero" style="position:relative;">
+      <!-- MENU DROPDOWN TITIK TIGA DI PROFIL SENDIRI -->
+      <div style="position:absolute; top:12px; right:12px; z-index:10;">
+        <button onclick="document.getElementById('my-profile-dropdown').classList.toggle('hidden')" 
+                title="Opsi Profil" 
+                style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+          <i class="bi bi-three-dots-vertical" style="font-size:13px;"></i>
+        </button>
+
+        <div id="my-profile-dropdown" class="hidden" 
+             style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+          
+          <button onclick="shareProfile('${currentUser.id}'); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+                  style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                  onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
+                  onmouseout="this.style.background='transparent'">
+            <i class="bi bi-share-fill" style="color:#38bdf8;"></i> Bagikan Profil
+          </button>
+        </div>
+      </div>
+
       <div class="profile-bg-banner"></div>
       <div class="profile-avatar-container">
         <img src="${sanitizeText(p?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.id}" class="profile-avatar-img">
@@ -1704,6 +1724,7 @@ async function loadProfile() {
           ${sanitizeText(p?.bio) || 'Belum ada bio.'}
         </p>
 
+        <!-- TOMBOL UTAMA TETAP RAPI (2 TOMBOL) -->
         <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
           <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-pencil-square"></i> Edit Profil
@@ -1713,6 +1734,7 @@ async function loadProfile() {
             <i class="bi bi-plus-circle"></i> Tambah Cerita / AU
           </button>
         </div>
+
 
         <div class="profile-stats-grid">
           <div class="stat-card" onclick="switchTab('tab-bookmark')">
