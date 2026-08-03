@@ -300,7 +300,7 @@ window.deleteBook = function(bookId) {
   })
 }
 
-// BUKA DETAIL BUKU / SOSMED AU + TOMBOL TITIK TIGA DI DIPINGGIR UJUNG
+// BUKA DETAIL BUKU / SOSMED AU + DROPDOWN TITIK TIGA (BAGIKAN & LAPORAN)
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
@@ -371,18 +371,40 @@ window.openBookDetail = async function(bookId) {
     if (detailContent) {
       detailContent.innerHTML = `
         <div style="position:relative; display:flex; gap:14px;">
-          <!-- TOMBOL TITIK TIGA DI PINGGIR UJUNG KANAN -->
-          ${(!isOwner && currentUser) ? `
-            <button onclick="openReportModal('book', '${book.id}')" title="Laporkan Cerita Ini" style="position:absolute; top:0; right:0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5;">
+          <!-- MENU DROPDOWN TITIK TIGA DI PINGGIR UJUNG KANAN BUKU -->
+          <div style="position:absolute; top:0; right:0; z-index:10;">
+            <button onclick="document.getElementById('book-menu-dropdown').classList.toggle('hidden')" 
+                    title="Opsi Cerita" 
+                    style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
               <i class="bi bi-three-dots-vertical" style="font-size:12px;"></i>
             </button>
-          ` : ''}
+
+            <div id="book-menu-dropdown" class="hidden" 
+                 style="position:absolute; right:0; top:34px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+              
+              <button onclick="shareBook('${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
+                      style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                      onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
+                      onmouseout="this.style.background='transparent'">
+                <i class="bi bi-share-fill" style="color:#38bdf8;"></i> Bagikan
+              </button>
+
+              ${(!isOwner && currentUser) ? `
+                <button onclick="openReportModal('book', '${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
+                        style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                        onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
+                        onmouseout="this.style.background='transparent'">
+                  <i class="bi bi-exclamation-triangle-fill"></i> Laporkan
+                </button>
+              ` : ''}
+            </div>
+          </div>
 
           <div class="uncropped-cover-container" style="width:100px; height:140px; flex-shrink:0;">
             <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-bg">
             <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/120'}" class="uncropped-cover-img">
           </div>
-          <div class="space-y-2" style="flex:1; padding-right:${(!isOwner && currentUser) ? '32px' : '0px'};">
+          <div class="space-y-2" style="flex:1; padding-right:32px;">
             <h2 style="font-size:16px; font-weight:800; color:#f8fafc; line-height:1.3;">${sanitizeText(book.title)}</h2>
             <p style="font-size:12px; color:#c084fc; font-weight:600;">${sanitizeText(book.author)}</p>
             ${uploaderHTML}
@@ -421,23 +443,17 @@ window.openBookDetail = async function(bookId) {
           </div>
         ` : ''}
 
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; padding-top:8px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding-top:8px;">
           <button onclick="toggleBookmark('${book.id}', ${isBookmarked})" 
-            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
             <i class="bi bi-bookmark${isBookmarked ? '-check-fill' : ''}" style="${isBookmarked ? 'color:#f87171' : ''}"></i>
             ${isBookmarked ? 'Simpan' : 'Bookmark'}
           </button>
           
           <button onclick="toggleRecommendation('${book.id}', ${isRecommended})" 
-            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
+            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
             <i class="bi bi-star${isRecommended ? '-fill' : ''}" style="${isRecommended ? 'color:#fbbf24' : ''}"></i>
             ${isRecommended ? 'Suka' : 'Rekomendasi'}
-          </button>
-
-          <button onclick="shareBook('${book.id}')" 
-            style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid rgba(168,85,247,0.3); background:rgba(168,85,247,0.15); color:#e9d5ff; display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;">
-            <i class="bi bi-share-fill" style="color:#c084fc;"></i>
-            Bagikan
           </button>
         </div>
 
@@ -1689,7 +1705,7 @@ async function loadProfile() {
   const totalKarya = userBooks ? userBooks.length : 0
 
   tabProfile.innerHTML = `
-        <div class="profile-card-hero" style="position:relative;">
+    <div class="profile-card-hero" style="position:relative;">
       <!-- MENU DROPDOWN TITIK TIGA DI PROFIL SENDIRI -->
       <div style="position:absolute; top:12px; right:12px; z-index:10;">
         <button onclick="document.getElementById('my-profile-dropdown').classList.toggle('hidden')" 
@@ -1724,7 +1740,7 @@ async function loadProfile() {
           ${sanitizeText(p?.bio) || 'Belum ada bio.'}
         </p>
 
-        <!-- TOMBOL UTAMA TETAP RAPI (2 TOMBOL) -->
+        <!-- TOMBOL UTAMA (2 TOMBOL) -->
         <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
           <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-pencil-square"></i> Edit Profil
@@ -1734,7 +1750,6 @@ async function loadProfile() {
             <i class="bi bi-plus-circle"></i> Tambah Cerita / AU
           </button>
         </div>
-
 
         <div class="profile-stats-grid">
           <div class="stat-card" onclick="switchTab('tab-bookmark')">
@@ -1827,9 +1842,11 @@ async function loadProfile() {
       </div>
     ` : ''}
 
+    <!-- TOMBOL LOGOUT TERANG & RAPI -->
     <div class="glass-card" style="overflow:hidden; margin-top:16px;">
-      <button id="btn-logout" class="btn-full" style="background:transparent; color:#f87171; justify-content:space-between; padding:14px 16px;">
+      <button id="btn-logout" class="btn-full" style="background:rgba(239, 68, 68, 0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); justify-content:space-between; padding:14px 16px; width:100%; font-weight:700; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:8px;"><i class="bi bi-box-arrow-right"></i> Keluar dari Akun</span>
+        <i class="bi bi-chevron-right" style="font-size:12px;"></i>
       </button>
     </div>
   `
@@ -2006,6 +2023,9 @@ window.dismissReport = async function(reportId) {
   }
 }
 
+// ==========================================
+// BANNER MANAGEMENT (TAMBAH, EDIT, HAPUS)
+// ==========================================
 async function renderAdminBannerList() {
   const container = document.getElementById('banner-admin-list')
   if (!container) return
@@ -2024,12 +2044,104 @@ async function renderAdminBannerList() {
         <span style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</span>
       </div>
       <div style="display:flex; gap:6px; margin-left:8px;">
+        <button onclick="editBanner('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Edit</button>
         <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Hapus</button>
       </div>
     </div>
   `).join('')
 }
 
+window.editBanner = async function(bannerId) {
+  try {
+    const { data: banner } = await supabase.from('banners').select('*').eq('id', bannerId).single()
+    if (!banner) return
+
+    let hiddenIdInput = document.getElementById('banner-id')
+    if (!hiddenIdInput) {
+      hiddenIdInput = document.createElement('input')
+      hiddenIdInput.type = 'hidden'
+      hiddenIdInput.id = 'banner-id'
+      document.getElementById('form-banner')?.appendChild(hiddenIdInput)
+    }
+
+    hiddenIdInput.value = banner.id
+    if (document.getElementById('banner-title')) document.getElementById('banner-title').value = banner.title || ''
+    if (document.getElementById('banner-desc')) document.getElementById('banner-desc').value = banner.description || ''
+    if (document.getElementById('banner-img-url')) document.getElementById('banner-img-url').value = banner.image_url || ''
+    if (document.getElementById('banner-link-url')) document.getElementById('banner-link-url').value = banner.link_url || ''
+
+    const btnSubmit = document.querySelector('#form-banner button[type="submit"]')
+    if (btnSubmit) btnSubmit.innerText = '✏️ Update Banner'
+  } catch (err) {
+    window.showToast('Gagal memuat data banner', 'error')
+  }
+}
+
+window.deleteBanner = function(bannerId) {
+  window.showConfirmModal('Hapus Banner', 'Apakah kamu yakin ingin menghapus banner ini?', async () => {
+    try {
+      const { error } = await supabase.from('banners').delete().eq('id', bannerId)
+      if (error) throw error
+      window.showToast('Banner berhasil dihapus!')
+      renderAdminBannerList()
+      loadBanners()
+    } catch (err) {
+      window.showToast('Gagal menghapus banner: ' + err.message, 'error')
+    }
+  })
+}
+
+function setupBannerModalEvents() {
+  const modalBanner = document.getElementById('modal-banner-form')
+  const btnClose = document.getElementById('close-modal-banner-form')
+  const formBanner = document.getElementById('form-banner')
+
+  btnClose?.addEventListener('click', () => {
+    modalBanner?.classList.add('hidden')
+    resetBannerForm()
+  })
+
+  formBanner?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (!currentUser || currentUser.profile?.role !== 'admin') return
+
+    const bannerId = document.getElementById('banner-id')?.value
+    const payload = {
+      title: document.getElementById('banner-title').value,
+      description: document.getElementById('banner-desc')?.value || null,
+      image_url: document.getElementById('banner-img-url').value,
+      link_url: document.getElementById('banner-link-url')?.value || null
+    }
+
+    try {
+      if (bannerId) {
+        const { error } = await supabase.from('banners').update(payload).eq('id', bannerId)
+        if (error) throw error
+        window.showToast('Banner berhasil diperbarui!')
+      } else {
+        const { error } = await supabase.from('banners').insert(payload)
+        if (error) throw error
+        window.showToast('Banner baru berhasil ditambahkan!')
+      }
+
+      resetBannerForm()
+      renderAdminBannerList()
+      loadBanners()
+    } catch (err) {
+      window.showToast('Gagal menyimpan banner: ' + err.message, 'error')
+    }
+  })
+}
+
+function resetBannerForm() {
+  const form = document.getElementById('form-banner')
+  if (form) form.reset()
+  if (document.getElementById('banner-id')) document.getElementById('banner-id').value = ''
+  const btnSubmit = document.querySelector('#form-banner button[type="submit"]')
+  if (btnSubmit) btnSubmit.innerText = 'Tambah Banner'
+}
+
+// TAG MANAGEMENT
 async function renderAdminTagList() {
   const container = document.getElementById('tag-admin-list')
   if (!container) return
@@ -2343,6 +2455,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEditProfileModal()
   setupConfirmModalEvents()
   setupReportModal()
+  setupBannerModalEvents()
   setupMobileBackNavigation()
   
   initAppData()
