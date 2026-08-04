@@ -39,10 +39,10 @@ function setupMobileBackNavigation() {
   })
 }
 
-// WHITELIST DOMAIN TERPERCAYA (LENGKAP DENGAN WEBTOONS.COM)
+// WHITELIST DOMAIN TERPERCAYA
 const TRUSTED_DOMAINS = [
   'x.com', 'twitter.com', 'instagram.com', 'tiktok.com', 
-  'threads.net', 'wattpad.com', 'webtoon.com', 'webtoons.com', // <-- DITAMBAHKAN WEBTOONS.COM
+  'threads.net', 'wattpad.com', 'webtoon.com', 'webtoons.com', 
   'kakao.com', 'kakaopage.com', 'tapas.io', 'fizzo.org', 
   'medium.com', 'youtube.com', 'archiveofourown.org', 
   'ipusnas.perpusnas.go.id', 'play.google.com', 'gramedia.com',
@@ -367,8 +367,6 @@ window.openBookDetail = async function(bookId) {
     }
     const topRootComments = rootComments.slice(0, 3)
 
-    const isSingleLinkAu = !!book.is_single_link || (parts.length === 0 && !!book.read_link_2)
-
     const detailContent = document.getElementById('detail-content')
     if (detailContent) {
       detailContent.innerHTML = `
@@ -466,7 +464,7 @@ window.openBookDetail = async function(bookId) {
             </a>
           ` : ''}
 
-          ${(isSingleLinkAu && book.read_link_2) ? `
+          ${book.read_link_2 ? `
             <a href="${sanitizeText(book.read_link_2)}" target="_blank" rel="noopener noreferrer" class="btn-full" style="background:linear-gradient(135deg, #0284c7, #38bdf8); color:white; text-decoration:none; font-weight:700;">
               <i class="bi bi-phone"></i> Baca Sosmed AU
             </a>
@@ -479,7 +477,7 @@ window.openBookDetail = async function(bookId) {
           ` : ''}
         </div>
 
-        ${(!isSingleLinkAu && parts.length > 0) ? `
+        ${parts.length > 0 ? `
           <div style="padding-top:10px; border-top:1px solid rgba(168,85,247,0.2);">
             <h4 style="font-size:12px; font-weight:800; color:#38bdf8; margin-bottom:8px;">📱 Daftar Part Thread / Post (${parts.length} Part):</h4>
             <div class="space-y-2">
