@@ -85,12 +85,32 @@ async function canUserAccessBook(book) {
   return false
 }
 
-// HELPER CEK VISIBILITAS TAB PROFIL (PUBLIK, FOLLOWER, PRIBADI)
+// HELPER CEK VISIBILITAS TAB PROFIL
 function checkTabVisibility(visibilitySetting, isFollowing) {
   const setting = visibilitySetting || 'public'
   if (setting === 'public') return true
   if (setting === 'followers' && isFollowing) return true
   return false
+}
+
+// HELPER CEK DUA ARAH BLOKIR USER
+async function checkBlockStatus(targetUserId) {
+  if (!currentUser) return { isBlockedByMe: false, isBlockingMe: false }
+
+  const { data: myBlock } = await supabase.from('blocked_users')
+    .select('id')
+    .eq('blocker_id', currentUser.id)
+    .eq('blocked_id', targetUserId)
+
+  const { data: opponentBlock } = await supabase.from('blocked_users')
+    .select('id')
+    .eq('blocker_id', targetUserId)
+    .eq('blocked_id', currentUser.id)
+
+  return {
+    isBlockedByMe: myBlock && myBlock.length > 0,
+    isBlockingMe: opponentBlock && opponentBlock.length > 0
+  }
 }
 
 // ==========================================
@@ -344,6 +364,14 @@ window.openBookDetail = async function(bookId) {
     activeBookDetailId = bookId
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
     if (!book) return
+
+    // CEK APAKAH PEMBUAT BUKU MENGEBLOKIR/DIBLOKIR
+    if (book.user_id && currentUser) {
+      const { isBlockedByMe, isBlockingMe } = await checkBlockStatus(book.user_id)
+      if (isBlockedByMe || isBlockingMe) {
+        return window.showToast('🚫 Cerita tidak tersedia karena kendala blokir akun.', 'error')
+      }
+    }
 
     const hasAccess = await canUserAccessBook(book)
     if (!hasAccess) {
@@ -873,26 +901,50 @@ window.openAllCommentsModal = async function(bookId) {
   }
 }
 
-window.blockUser = function(targetUserId) {
-  window.showConfirmModal('Blokir Pengguna', 'Apakah kamu yakin ingin memblokir pengguna ini?', async () => {
-    try {
-      const { error } = await supabase.from('blocked_users').insert({
-        blocker_id: currentUser.id,
-        blocked_id: targetUserId
-      })
-      if (error) throw error
+// TOGGLE BLOKIR & UNBLOCK BERSAMA AUTO-UNFOLLOW
+window.toggleBlockUser = function(targetUserId, currentlyBlocked) {
+  const actionName = currentlyBlocked ? 'Buka Blokir' : 'Blokir'
+  const actionMsg = currentlyBlocked 
+    ? 'Apakah kamu yakin ingin membuka blokir pengguna ini?' 
+    : 'Apakah kamu yakin ingin memblokir pengguna ini? Kalian otomatis tidak akan saling mengikuti lagi.'
 
-      window.showToast('Pengguna berhasil diblokir!')
-      document.getElementById('modal-user-profile')?.classList.add('hidden')
+  window.showConfirmModal(`${actionName} Pengguna`, actionMsg, async () => {
+    try {
+      if (currentlyBlocked) {
+        // UNBLOCK
+        const { error } = await supabase.from('blocked_users')
+          .delete()
+          .eq('blocker_id', currentUser.id)
+          .eq('blocked_id', targetUserId)
+
+        if (error) throw error
+        window.showToast('Berhasil membuka blokir!')
+      } else {
+        // BLOCK
+        const { error } = await supabase.from('blocked_users').insert({
+          blocker_id: currentUser.id,
+          blocked_id: targetUserId
+        })
+
+        if (error) throw error
+
+        // HAPUS HUBUNGAN FOLLOW SAAT DIBLOKIR
+        await supabase.from('follows').delete().or(`and(follower_id.eq.${currentUser.id},following_id.eq.${targetUserId}),and(follower_id.eq.${targetUserId},following_id.eq.${currentUser.id})`)
+
+        window.showToast('Pengguna berhasil diblokir!')
+      }
+
+      await window.openUserProfile(targetUserId)
       loadHomeBooks()
       loadExploreBooks()
+      loadRecommendedUsersHome()
     } catch (err) {
-      window.showToast('Gagal memblokir: ' + err.message, 'error')
+      window.showToast(`Gagal ${actionName.toLowerCase()}: ` + err.message, 'error')
     }
   })
 }
 
-// PROFIL PUBLIK PENGGUNA LAIN (MEMPERTIMBANGKAN PRIVASI 3 OPSI)
+// PROFIL PUBLIK PENGGUNA LAIN (SOPAN & KEDAP BLOKIR)
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -913,6 +965,60 @@ window.openUserProfile = async function(userId) {
   try {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (!profile) return window.showToast('Profil tidak ditemukan', 'error')
+
+    // CEK STATUS BLOKIR DUA ARAH
+    const { isBlockedByMe, isBlockingMe } = await checkBlockStatus(userId)
+
+    if (isBlockingMe) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:30px 10px;" class="space-y-2">
+          <div style="font-size:40px; color:#f87171;"><i class="bi bi-slash-circle"></i></div>
+          <h3 style="font-size:15px; font-weight:800; color:#f8fafc;">Profil Tidak Tersedia</h3>
+          <p style="font-size:11px; color:#94a3b8;">Kamu tidak dapat melihat informasi akun pengguna ini.</p>
+        </div>
+      `
+      return
+    }
+
+    if (isBlockedByMe) {
+      container.innerHTML = `
+        <div class="profile-card-hero" style="position:relative;">
+          <div style="position:absolute; top:12px; right:12px; z-index:10;">
+            <button onclick="document.getElementById('user-menu-dropdown').classList.toggle('hidden')" 
+                    style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+              <i class="bi bi-three-dots-vertical" style="font-size:13px;"></i>
+            </button>
+
+            <div id="user-menu-dropdown" class="hidden" 
+                 style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:150px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+              <button onclick="toggleBlockUser('${profile.id}', true); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+                      style="width:100%; text-align:left; background:transparent; border:none; color:#38bdf8; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;">
+                <i class="bi bi-unlock-fill"></i> Buka Blokir
+              </button>
+            </div>
+          </div>
+
+          <div class="profile-bg-banner"></div>
+          <div class="profile-avatar-container">
+            <img src="${sanitizeText(profile.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + profile.id}" class="profile-avatar-img">
+          </div>
+          <div class="profile-info-box">
+            <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">
+              ${sanitizeText(profile.full_name) || 'User'}
+            </h3>
+            <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${sanitizeText(profile.username) || 'user'}</p>
+
+            <div style="margin-top:20px; padding:16px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:14px; text-align:center;">
+              <p style="font-size:11px; color:#fca5a5; font-weight:700;">🚫 Kamu telah memblokir pengguna ini.</p>
+              <button onclick="toggleBlockUser('${profile.id}', true)" style="margin-top:10px; padding:6px 16px; background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); border-radius:9999px; font-size:10px; font-weight:700; cursor:pointer;">
+                Buka Blokir
+              </button>
+            </div>
+          </div>
+        </div>
+      `
+      return
+    }
 
     let isFollowing = false
     let isFollowedBy = false
@@ -936,7 +1042,6 @@ window.openUserProfile = async function(userId) {
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     
-    // CEK HAK AKSES PROFIL DENGAN ATURAN 3 OPSI (publik, followers, private)
     const canSeeRec = checkTabVisibility(profile.recommendation_visibility, isFollowing)
     
     let recBooks = []
@@ -984,7 +1089,7 @@ window.openUserProfile = async function(userId) {
             </button>
 
             ${currentUser ? `
-              <button onclick="blockUser('${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+              <button onclick="toggleBlockUser('${profile.id}', false); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                       onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
                       onmouseout="this.style.background='transparent'">
@@ -1180,19 +1285,23 @@ window.openSocialModal = async function(type) {
   }
 }
 
+// MEMUAT BUKU POPULER (DENGAN FILTER USER DIBLOKIR 2 ARAH)
 async function loadHomeBooks() {
-  let blockedIds = []
+  let blockedUserIds = []
   if (currentUser) {
-    const { data: blocked } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
-    if (blocked) blockedIds = blocked.map(b => b.blocked_id)
+    const { data: myBlocks } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
+    const { data: opponentBlocks } = await supabase.from('blocked_users').select('blocker_id').eq('blocked_id', currentUser.id)
+    
+    if (myBlocks) blockedUserIds.push(...myBlocks.map(b => b.blocked_id))
+    if (opponentBlocks) blockedUserIds.push(...opponentBlocks.map(b => b.blocker_id))
   }
 
   const { data: allBooks } = await supabase.from('books').select('*').eq('visibility', 'public')
   if (!allBooks || allBooks.length === 0) return
 
   let filteredBooks = allBooks
-  if (blockedIds.length > 0) {
-    filteredBooks = allBooks.filter(b => !blockedIds.includes(b.user_id))
+  if (blockedUserIds.length > 0) {
+    filteredBooks = allBooks.filter(b => !blockedUserIds.includes(b.user_id))
   }
 
   const popularAu = filteredBooks.filter(b => b.media_type === 'Sosmed AU').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
@@ -1445,17 +1554,32 @@ async function loadRecommendedUsersHome() {
   const container = document.getElementById('list-recommended-users-home')
   if (!container) return
 
-  let query = supabase.from('profiles').select('*').limit(8)
+  let blockedUserIds = []
+  if (currentUser) {
+    const { data: myBlocks } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
+    const { data: opponentBlocks } = await supabase.from('blocked_users').select('blocker_id').eq('blocked_id', currentUser.id)
+    
+    if (myBlocks) blockedUserIds.push(...myBlocks.map(b => b.blocked_id))
+    if (opponentBlocks) blockedUserIds.push(...opponentBlocks.map(b => b.blocker_id))
+  }
+
+  let query = supabase.from('profiles').select('*').limit(15)
   if (currentUser) query = query.neq('id', currentUser.id)
 
   const { data: users } = await query
 
-  if (!users || users.length === 0) {
+  let filteredUsers = users || []
+  if (blockedUserIds.length > 0) {
+    filteredUsers = filteredUsers.filter(u => !blockedUserIds.includes(u.id))
+  }
+  filteredUsers = filteredUsers.slice(0, 8)
+
+  if (filteredUsers.length === 0) {
     container.innerHTML = `<p style="font-size:11px; color:#94a3b8; padding:8px 0;">Belum ada akun lain yang dapat disarankan.</p>`
     return
   }
 
-  container.innerHTML = users.map(user => `
+  container.innerHTML = filteredUsers.map(user => `
     <div onclick="openUserProfile('${user.id}')" style="min-width:115px; max-width:115px; flex-shrink:0; background:rgba(23, 15, 48, 0.6); border:1px solid rgba(168, 85, 247, 0.25); border-radius:16px; padding:12px 8px; text-align:center; cursor:pointer;">
       <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:46px; height:42px; border-radius:50%; object-fit:cover; margin:0 auto 6px; border:2px solid #a855f7;">
       <h4 style="font-size:11px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(user.full_name) || 'User'}</h4>
@@ -1577,7 +1701,7 @@ function setupBookFormModal() {
       parts: partsData,
       uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader'),
       is_published: true, 
-      user_id: isAdmin ? null : currentUser.id[span_0](start_span)[span_0](end_span)
+      user_id: isAdmin ? null : currentUser.id
     }
 
     if (isAdmin && document.getElementById('book-buy-link')) {
@@ -1642,7 +1766,7 @@ function setupBookFormModal() {
           read_link_2: b.read_link_2 || null,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
-          user_id: isAdmin ? null : (currentUser?.id || null)[span_1](start_span)[span_1](end_span)
+          user_id: isAdmin ? null : (currentUser?.id || null)
         }
       })
 
@@ -1665,6 +1789,16 @@ function setupBookFormModal() {
 async function loadExploreBooks() {
   const searchInput = document.getElementById('explore-search')
   const searchQuery = searchInput ? searchInput.value : ''
+
+  let blockedUserIds = []
+  if (currentUser) {
+    const { data: myBlocks } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
+    const { data: opponentBlocks } = await supabase.from('blocked_users').select('blocker_id').eq('blocked_id', currentUser.id)
+    
+    if (myBlocks) blockedUserIds.push(...myBlocks.map(b => b.blocked_id))
+    if (opponentBlocks) blockedUserIds.push(...opponentBlocks.map(b => b.blocker_id))
+  }
+
   let query = supabase.from('books').select('*')
 
   if (currentMediaFilter !== 'all') query = query.eq('media_type', currentMediaFilter)
@@ -1684,6 +1818,10 @@ async function loadExploreBooks() {
   if (listExplore) {
     let visibleBooks = books ? books.filter(b => b.visibility === 'public' || (currentUser && currentUser.id === b.user_id)) : []
 
+    if (blockedUserIds.length > 0) {
+      visibleBooks = visibleBooks.filter(b => !blockedUserIds.includes(b.user_id))
+    }
+
     renderBookVertical('list-explore', visibleBooks)
     
     const suggestPromptHTML = `
@@ -1701,6 +1839,7 @@ async function loadExploreBooks() {
   }
 }
 
+// FILTER EXPLORE USERS AGAR USER BLOKIRAN GAK MUNCUL DI PENCARIAN
 async function loadExploreUsers() {
   const container = document.getElementById('list-explore-users')
   const searchInput = document.getElementById('explore-search')
@@ -1708,7 +1847,17 @@ async function loadExploreUsers() {
 
   if (!container) return
 
+  let blockedUserIds = []
+  if (currentUser) {
+    const { data: myBlocks } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
+    const { data: opponentBlocks } = await supabase.from('blocked_users').select('blocker_id').eq('blocked_id', currentUser.id)
+    
+    if (myBlocks) blockedUserIds.push(...myBlocks.map(b => b.blocked_id))
+    if (opponentBlocks) blockedUserIds.push(...opponentBlocks.map(b => b.blocker_id))
+  }
+
   let query = supabase.from('profiles').select('*')
+  if (currentUser) query = query.neq('id', currentUser.id)
 
   if (searchQuery !== '') {
     query = query.or(`full_name.ilike.%${searchQuery}%,username.ilike.%${searchQuery}%`)
@@ -1716,12 +1865,17 @@ async function loadExploreUsers() {
 
   const { data: users } = await query.limit(20)
 
-  if (!users || users.length === 0) {
+  let filteredUsers = users || []
+  if (blockedUserIds.length > 0) {
+    filteredUsers = filteredUsers.filter(u => !blockedUserIds.includes(u.id))
+  }
+
+  if (filteredUsers.length === 0) {
     container.innerHTML = `<p style="font-size:12px; color:#94a3b8; text-align:center; padding:16px 0;">Tidak ada akun pengguna ditemukan.</p>`
     return
   }
 
-  container.innerHTML = users.map(user => `
+  container.innerHTML = filteredUsers.map(user => `
     <div onclick="openUserProfile('${user.id}')" class="user-item" style="cursor:pointer; padding:12px;">
       <div style="display:flex; align-items:center; gap:12px;">
         <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
