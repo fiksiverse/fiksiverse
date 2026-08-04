@@ -60,6 +60,39 @@ function isTrustedUrl(urlStr) {
   }
 }
 
+// HELPER CEK PRIVASI BUKU
+async function canUserAccessBook(book) {
+  if (!book) return false
+  const visibility = book.visibility || 'public'
+  if (visibility === 'public') return true
+  if (!currentUser) return false
+  
+  const isAdmin = currentUser.profile?.role === 'admin'
+  const isOwner = currentUser.id === book.user_id
+  if (isOwner || isAdmin) return true
+
+  if (visibility === 'private') return false
+
+  if (visibility === 'followers') {
+    if (!book.user_id) return true
+    const { data: follow } = await supabase.from('follows')
+      .select('follower_id')
+      .eq('follower_id', currentUser.id)
+      .eq('following_id', book.user_id)
+    return follow && follow.length > 0
+  }
+
+  return false
+}
+
+// HELPER CEK VISIBILITAS TAB PROFIL (PUBLIK, FOLLOWER, PRIBADI)
+function checkTabVisibility(visibilitySetting, isFollowing) {
+  const setting = visibilitySetting || 'public'
+  if (setting === 'public') return true
+  if (setting === 'followers' && isFollowing) return true
+  return false
+}
+
 // ==========================================
 // REGISTRASI FUNGSI GLOBAL (WINDOW)
 // ==========================================
@@ -98,7 +131,6 @@ window.shareBook = function(id) {
   }
 }
 
-// FUNGSI SHARE PROFIL
 window.shareProfile = function(userId) {
   const shareUrl = `${window.location.origin}${window.location.pathname}?user=${userId}`
 
@@ -164,11 +196,15 @@ window.openEditProfileModal = function() {
   const uName = document.getElementById('edit-username')
   const aUrl = document.getElementById('edit-avatar-url')
   const bio = document.getElementById('edit-bio')
+  const bmVis = document.getElementById('edit-bookmark-visibility')
+  const recVis = document.getElementById('edit-recommendation-visibility')
 
   if (fName) fName.value = p?.full_name || ''
   if (uName) uName.value = p?.username || ''
   if (aUrl) aUrl.value = p?.avatar_url || ''
   if (bio) bio.value = p?.bio || ''
+  if (bmVis) bmVis.value = p?.bookmark_visibility || 'public'
+  if (recVis) recVis.value = p?.recommendation_visibility || 'public'
 
   const cF = document.getElementById('count-fullname')
   const cU = document.getElementById('count-username')
@@ -182,7 +218,6 @@ window.openEditProfileModal = function() {
   pushHistoryState('modal', 'modal-edit-profile')
 }
 
-// MODAL FORM BUKU / AU TERPADU
 window.openBookFormById = async function(bookId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
@@ -219,10 +254,11 @@ window.openBookFormById = async function(bookId = null) {
       document.getElementById('book-cover-url').value = book.cover_url || ''
       document.getElementById('book-read-link').value = book.read_link || ''
       document.getElementById('book-read-link-2').value = book.read_link_2 || ''
-
-      const isSingleCheckbox = document.getElementById('book-is-single-link')
-      if (isSingleCheckbox) isSingleCheckbox.checked = !!book.is_single_link
       
+      if (document.getElementById('book-visibility')) {
+        document.getElementById('book-visibility').value = book.visibility || 'public'
+      }
+
       const uploaderSelect = document.getElementById('book-uploader-type')
       if (uploaderSelect) uploaderSelect.value = book.uploader_type || 'reader'
 
@@ -302,12 +338,22 @@ window.deleteBook = function(bookId) {
   })
 }
 
-// BUKA DETAIL BUKU / SOSMED AU + DROPDOWN TITIK TIGA (BAGIKAN & LAPORAN)
+// BUKA DETAIL BUKU
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
     if (!book) return
+
+    const hasAccess = await canUserAccessBook(book)
+    if (!hasAccess) {
+      const vis = book.visibility
+      if (vis === 'private') {
+        return window.showToast('🔒 Cerita ini bersifat pribadi (Hanya Saya).', 'error')
+      } else if (vis === 'followers') {
+        return window.showToast('👥 Cerita ini dikunci, khusus untuk Pengikut!', 'error')
+      }
+    }
 
     let uploaderProfile = null
     if (book.user_id) {
@@ -367,11 +413,17 @@ window.openBookDetail = async function(bookId) {
     }
     const topRootComments = rootComments.slice(0, 3)
 
+    let visibilityBadge = ''
+    if (book.visibility === 'private') {
+      visibilityBadge = `<span style="padding:2px 8px; background:rgba(239,68,68,0.25); color:#fca5a5; font-size:10px; border-radius:9999px; font-weight:700;">🔒 Hanya Saya</span>`
+    } else if (book.visibility === 'followers') {
+      visibilityBadge = `<span style="padding:2px 8px; background:rgba(56,189,248,0.25); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">👥 Hanya Pengikut</span>`
+    }
+
     const detailContent = document.getElementById('detail-content')
     if (detailContent) {
       detailContent.innerHTML = `
         <div style="position:relative; display:flex; gap:14px;">
-          <!-- MENU DROPDOWN TITIK TIGA -->
           <div style="position:absolute; top:0; right:0; z-index:10;">
             <button onclick="document.getElementById('book-menu-dropdown').classList.toggle('hidden')" 
                     title="Opsi Cerita" 
@@ -412,6 +464,7 @@ window.openBookDetail = async function(bookId) {
               <span style="padding:2px 8px; background:rgba(168,85,247,0.2); color:#e9d5ff; font-size:10px; border-radius:9999px; font-weight:700;">
                 ${sanitizeText(book.media_type)} • ${sanitizeText(book.status)}
               </span>
+              ${visibilityBadge}
               ${book.platform ? `<span style="padding:2px 8px; background:rgba(56,189,248,0.2); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">📱 ${sanitizeText(book.platform)}</span>` : ''}
               ${book.genre ? `<span style="padding:2px 8px; background:rgba(255,255,255,0.05); color:#cbd5e1; font-size:10px; border-radius:9999px; font-weight:600;">🏷️ ${sanitizeText(book.genre)}</span>` : ''}
             </div>
@@ -477,13 +530,11 @@ window.openBookDetail = async function(bookId) {
           ` : ''}
         </div>
 
-        <!-- SINOPSIS PINDAH KE SINI (DI ATAS DAFTAR PART) -->
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
           <h4 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:4px;">Sinopsis</h4>
           <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
         </div>
 
-        <!-- DAFTAR LINK PART SEKARANG DI BAWAH SINOPSIS -->
         ${parts.length > 0 ? `
           <div style="padding-top:10px; border-top:1px solid rgba(168,85,247,0.2);">
             <h4 style="font-size:12px; font-weight:800; color:#38bdf8; margin-bottom:8px;">📱 Daftar Part Thread / Post (${parts.length} Part):</h4>
@@ -499,7 +550,6 @@ window.openBookDetail = async function(bookId) {
           </div>
         ` : ''}
 
-        <!-- KOMENTAR -->
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 style="font-size:12px; font-weight:800; color:#c084fc;">💬 Komentar (${commentCount || 0})</h4>
@@ -510,9 +560,15 @@ window.openBookDetail = async function(bookId) {
             ` : ''}
           </div>
 
-          <form id="form-quick-comment" style="display:flex; gap:6px; margin-bottom:10px;">
-            <input type="text" id="quick-comment-input" placeholder="Tulis komentar..." class="form-input" style="font-size:11px; padding:8px 12px;" required>
-            <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
+          <form id="form-quick-comment" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="quick-comment-input" placeholder="Tulis komentar..." class="form-input" style="font-size:11px; padding:8px 12px;" required>
+              <button type="submit" class="btn-galaxy-primary" style="padding:0 14px; font-size:11px; font-weight:700; flex-shrink:0;">Kirim</button>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#cbd5e1; cursor:pointer; padding-left:2px;">
+              <input type="checkbox" id="quick-comment-anonymous" style="accent-color:#a855f7;">
+              <span>Kirim sebagai Anonim</span>
+            </label>
           </form>
 
           <div class="space-y-2">
@@ -525,8 +581,9 @@ window.openBookDetail = async function(bookId) {
       document.getElementById('form-quick-comment')?.addEventListener('submit', async (e) => {
         e.preventDefault()
         const input = document.getElementById('quick-comment-input')
+        const anonInput = document.getElementById('quick-comment-anonymous')
         if (!input || !input.value.trim()) return
-        await submitComment(book.id, input.value.trim())
+        await submitComment(book.id, input.value.trim(), null, anonInput?.checked || false)
       })
     }
     document.getElementById('modal-detail')?.classList.remove('hidden')
@@ -536,7 +593,6 @@ window.openBookDetail = async function(bookId) {
   }
 }
 
-// TOGGLE FORM BALASAN INLINE
 window.toggleReplyForm = function(commentId) {
   const form = document.getElementById(`reply-form-${commentId}`)
   if (form) {
@@ -544,12 +600,12 @@ window.toggleReplyForm = function(commentId) {
   }
 }
 
-// SUBMIT BALASAN KOMENTAR
 window.handleReplySubmit = async function(e, bookId, parentId) {
   e.preventDefault()
   const input = document.getElementById(`input-reply-form-${parentId}`)
+  const anonInput = document.getElementById(`anon-reply-form-${parentId}`)
   if (!input || !input.value.trim()) return
-  await submitComment(bookId, input.value.trim(), parentId)
+  await submitComment(bookId, input.value.trim(), parentId, anonInput?.checked || false)
 }
 
 function renderCommentItemHTML(c, bookId, replies = []) {
@@ -558,12 +614,17 @@ function renderCommentItemHTML(c, bookId, replies = []) {
   const canDelete = isMine || isAdmin
   const replyInputId = `reply-form-${c.id}`
 
+  const isAnon = c.is_anonymous
+  const displayName = isAnon ? '👤 Anonim' : `@${sanitizeText(c.user?.username || 'user')}`
+  const avatarUrl = isAnon ? 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous' : (sanitizeText(c.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + c.user_id)
+  const profileClick = isAnon ? '' : `onclick="openUserProfile('${c.user_id}')"`
+
   return `
     <div style="background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(168,85,247,0.15); margin-bottom:6px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="openUserProfile('${c.user_id}')">
-          <img src="${sanitizeText(c.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + c.user_id}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
-          <span style="font-size:11px; font-weight:700; color:#f8fafc;">@${sanitizeText(c.user?.username || 'user')}</span>
+        <div style="display:flex; align-items:center; gap:8px; ${isAnon ? '' : 'cursor:pointer;'}" ${profileClick}>
+          <img src="${avatarUrl}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+          <span style="font-size:11px; font-weight:700; color:#f8fafc;">${displayName}</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-size:9px; color:#94a3b8;">${new Date(c.created_at).toLocaleDateString('id-ID')}</span>
@@ -572,7 +633,6 @@ function renderCommentItemHTML(c, bookId, replies = []) {
               🗑️
             </button>
           ` : ''}
-          <!-- TOMBOL TITIK TIGA DIPINGGIR UJUNG KHUSUS KOMENTAR -->
           ${!isMine ? `
             <button onclick="openReportModal('comment', '${c.id}', '${bookId}')" title="Laporkan Komentar" style="background:transparent; border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:2px;">
               <i class="bi bi-three-dots-vertical"></i>
@@ -589,48 +649,61 @@ function renderCommentItemHTML(c, bookId, replies = []) {
       </div>
 
       <div id="${replyInputId}" class="hidden" style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(168,85,247,0.2);">
-        <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; gap:6px;">
-          <input type="text" id="input-${replyInputId}" placeholder="Balas @${sanitizeText(c.user?.username || 'user')}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
-          <button type="submit" class="btn-galaxy-primary" style="padding:0 10px; font-size:10px; font-weight:700; flex-shrink:0;">Kirim</button>
+        <form onsubmit="window.handleReplySubmit(event, '${bookId}', '${c.id}')" style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="input-${replyInputId}" placeholder="Balas ${displayName}..." class="form-input" style="font-size:10px; padding:6px 10px;" required>
+            <button type="submit" class="btn-galaxy-primary" style="padding:0 10px; font-size:10px; font-weight:700; flex-shrink:0;">Kirim</button>
+          </div>
+          <label style="display:flex; align-items:center; gap:4px; font-size:9px; color:#cbd5e1; cursor:pointer;">
+            <input type="checkbox" id="anon-${replyInputId}" style="accent-color:#a855f7;">
+            <span>Kirim sebagai Anonim</span>
+          </label>
         </form>
       </div>
 
       ${replies.length > 0 ? `
         <div style="margin-top:8px; padding-left:10px; border-left:2px solid rgba(168,85,247,0.3);" class="space-y-2">
-          ${replies.map(r => `
-            <div style="background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:8px; border:1px solid rgba(168,85,247,0.1);">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="openUserProfile('${r.user_id}')">
-                  <img src="${sanitizeText(r.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + r.user_id}" style="width:20px; height:20px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
-                  <span style="font-size:10px; font-weight:700; color:#f8fafc;">@${sanitizeText(r.user?.username || 'user')}</span>
+          ${replies.map(r => {
+            const rAnon = r.is_anonymous
+            const rName = rAnon ? '👤 Anonim' : `@${sanitizeText(r.user?.username || 'user')}`
+            const rAvatar = rAnon ? 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous' : (sanitizeText(r.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + r.user_id)
+            const rClick = rAnon ? '' : `onclick="openUserProfile('${r.user_id}')"`
+
+            return `
+              <div style="background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:8px; border:1px solid rgba(168,85,247,0.1);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div style="display:flex; align-items:center; gap:6px; ${rAnon ? '' : 'cursor:pointer;'}" ${rClick}>
+                    <img src="${rAvatar}" style="width:20px; height:20px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
+                    <span style="font-size:10px; font-weight:700; color:#f8fafc;">${rName}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:4px;">
+                    <span style="font-size:8px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
+                    ${(currentUser && (currentUser.id === r.user_id || isAdmin)) ? `
+                      <button onclick="deleteComment('${r.id}', '${bookId}')" title="Hapus Balasan" style="background:transparent; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:2px;">
+                        🗑️
+                      </button>
+                    ` : ''}
+                  </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:4px;">
-                  <span style="font-size:8px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
-                  ${(currentUser && (currentUser.id === r.user_id || isAdmin)) ? `
-                    <button onclick="deleteComment('${r.id}', '${bookId}')" title="Hapus Balasan" style="background:transparent; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:2px;">
-                      🗑️
-                    </button>
-                  ` : ''}
-                </div>
+                <p style="font-size:10px; color:#cbd5e1; margin-top:2px; line-height:1.3;">${sanitizeText(r.content)}</p>
               </div>
-              <p style="font-size:10px; color:#cbd5e1; margin-top:2px; line-height:1.3;">${sanitizeText(r.content)}</p>
-            </div>
-          `).join('')}
+            `
+          }).join('')}
         </div>
       ` : ''}
     </div>
   `
 }
 
-// SIMPAN KOMENTAR & KIRIM NOTIFIKASI OTOMATIS
-window.submitComment = async function(bookId, content, parentId = null) {
+window.submitComment = async function(bookId, content, parentId = null, isAnonymous = false) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu untuk berkomentar!', 'error')
 
   try {
     const payload = {
       book_id: bookId,
       user_id: currentUser.id,
-      content: content
+      content: content,
+      is_anonymous: isAnonymous
     }
     if (parentId) payload.parent_id = parentId
 
@@ -691,7 +764,6 @@ window.deleteComment = function(commentId, bookId) {
   })
 }
 
-// FUNGSI LAPORAN TERPADU DENGAN FIX DATABASE
 window.openReportModal = function(targetType, targetId, contextId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
@@ -789,8 +861,9 @@ window.openAllCommentsModal = async function(bookId) {
       newForm.addEventListener('submit', async (e) => {
         e.preventDefault()
         const input = document.getElementById('full-comment-input')
+        const anonInput = document.getElementById('full-comment-anonymous')
         if (!input || !input.value.trim()) return
-        await submitComment(bookId, input.value.trim())
+        await submitComment(bookId, input.value.trim(), null, anonInput?.checked || false)
         input.value = ''
         window.openAllCommentsModal(bookId)
       })
@@ -800,7 +873,26 @@ window.openAllCommentsModal = async function(bookId) {
   }
 }
 
-// PROFIL PUBLIK PENGGUNA LAIN + DROPDOWN MENU TITIK TIGA (BAGIKAN & LAPORAN)
+window.blockUser = function(targetUserId) {
+  window.showConfirmModal('Blokir Pengguna', 'Apakah kamu yakin ingin memblokir pengguna ini?', async () => {
+    try {
+      const { error } = await supabase.from('blocked_users').insert({
+        blocker_id: currentUser.id,
+        blocked_id: targetUserId
+      })
+      if (error) throw error
+
+      window.showToast('Pengguna berhasil diblokir!')
+      document.getElementById('modal-user-profile')?.classList.add('hidden')
+      loadHomeBooks()
+      loadExploreBooks()
+    } catch (err) {
+      window.showToast('Gagal memblokir: ' + err.message, 'error')
+    }
+  })
+}
+
+// PROFIL PUBLIK PENGGUNA LAIN (MEMPERTIMBANGKAN PRIVASI 3 OPSI)
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -844,11 +936,19 @@ window.openUserProfile = async function(userId) {
     const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)
     const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     
-    const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
-    const recBooks = userRecs ? userRecs.map(r => r.books).filter(b => b) : []
+    // CEK HAK AKSES PROFIL DENGAN ATURAN 3 OPSI (publik, followers, private)
+    const canSeeRec = checkTabVisibility(profile.recommendation_visibility, isFollowing)
+    
+    let recBooks = []
+    if (canSeeRec) {
+      const { data: userRecs } = await supabase.from('recommendations').select('books(*)').eq('user_id', userId)
+      recBooks = userRecs ? userRecs.map(r => r.books).filter(b => b) : []
+      recBooks = recBooks.filter(b => b.visibility === 'public' || (b.visibility === 'followers' && isFollowing))
+    }
 
     const { data: userAdded } = await supabase.from('books').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-    const addedBooks = userAdded || []
+    let addedBooks = userAdded || []
+    addedBooks = addedBooks.filter(b => b.visibility === 'public' || (b.visibility === 'followers' && isFollowing))
 
     let followBtnText = 'Ikuti'
     let followBtnIcon = 'bi-person-plus-fill'
@@ -866,7 +966,6 @@ window.openUserProfile = async function(userId) {
 
     container.innerHTML = `
       <div class="profile-card-hero" style="position:relative;">
-        <!-- MENU DROPDOWN TITIK TIGA DI PINGGIR UJUNG KANAN PROFIL USER -->
         <div style="position:absolute; top:12px; right:12px; z-index:10;">
           <button onclick="document.getElementById('user-menu-dropdown').classList.toggle('hidden')" 
                   title="Opsi" 
@@ -885,6 +984,12 @@ window.openUserProfile = async function(userId) {
             </button>
 
             ${currentUser ? `
+              <button onclick="blockUser('${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+                      style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                      onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
+                      onmouseout="this.style.background='transparent'">
+                <i class="bi bi-slash-circle-fill"></i> Blokir User
+              </button>
               <button onclick="openReportModal('user', '${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                       onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
@@ -927,7 +1032,7 @@ window.openUserProfile = async function(userId) {
 
       <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:12px; padding-bottom:8px; margin-top:8px;">
         <button id="public-tab-rec" onclick="window.switchPublicTab('rec')" class="auth-tab active" type="button" style="font-size:12px; padding:6px 12px;">
-          ⭐ Direkomendasikan (${recBooks.length})
+          ⭐ Direkomendasikan (${!canSeeRec ? '🔒 Dikunci' : recBooks.length})
         </button>
         <button id="public-tab-added" onclick="window.switchPublicTab('added')" class="auth-tab" type="button" style="font-size:12px; padding:6px 12px;">
           📚 Ditambahkan (${addedBooks.length})
@@ -935,7 +1040,7 @@ window.openUserProfile = async function(userId) {
       </div>
 
       <div id="public-sec-rec" style="padding-top:8px;">
-        ${recBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum merekomendasikan cerita apa pun.</p>` : ''}
+        ${!canSeeRec ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">🔒 Daftar rekomendasi pengguna ini dikunci.</p>` : (recBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum merekomendasikan cerita publik apa pun.</p>` : '')}
         <div class="book-grid-vertical">
           ${recBooks.map(book => `
             <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
@@ -954,7 +1059,7 @@ window.openUserProfile = async function(userId) {
       </div>
 
       <div id="public-sec-added" class="hidden" style="padding-top:8px;">
-        ${addedBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum menambahkan cerita.</p>` : ''}
+        ${addedBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">Tidak ada cerita publik yang dapat ditampilkan.</p>` : ''}
         <div class="book-grid-vertical">
           ${addedBooks.map(book => `
             <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
@@ -1075,24 +1180,34 @@ window.openSocialModal = async function(type) {
   }
 }
 
-// MEMUAT CARD POPULER MINGGU INI DI HOME
 async function loadHomeBooks() {
-  const { data: allBooks } = await supabase.from('books').select('*')
+  let blockedIds = []
+  if (currentUser) {
+    const { data: blocked } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', currentUser.id)
+    if (blocked) blockedIds = blocked.map(b => b.blocked_id)
+  }
+
+  const { data: allBooks } = await supabase.from('books').select('*').eq('visibility', 'public')
   if (!allBooks || allBooks.length === 0) return
 
-  const popularAu = allBooks.filter(b => b.media_type === 'Sosmed AU').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
+  let filteredBooks = allBooks
+  if (blockedIds.length > 0) {
+    filteredBooks = allBooks.filter(b => !blockedIds.includes(b.user_id))
+  }
+
+  const popularAu = filteredBooks.filter(b => b.media_type === 'Sosmed AU').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
   renderBookHorizontal('list-popular-au', popularAu)
 
-  const popularNovel = allBooks.filter(b => b.media_type === 'Novel').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
+  const popularNovel = filteredBooks.filter(b => b.media_type === 'Novel').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
   renderBookHorizontal('list-popular-novel', popularNovel)
 
-  const popularKomik = allBooks.filter(b => b.media_type === 'Komik').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
+  const popularKomik = filteredBooks.filter(b => b.media_type === 'Komik').sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
   renderBookHorizontal('list-popular-komik', popularKomik)
 
-  const recommended = [...allBooks].sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
+  const recommended = [...filteredBooks].sort((a,b) => (b.recommendation_count || 0) - (a.recommendation_count || 0)).slice(0, 6)
   renderBookHorizontal('list-recommended-home', recommended)
 
-  const newest = [...allBooks].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6)
+  const newest = [...filteredBooks].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6)
   renderBookHorizontal('list-newest', newest)
 }
 
@@ -1148,7 +1263,6 @@ function renderBookVertical(containerId, books) {
   `).join('')
 }
 
-// TOGGLE BOOKMARK
 window.toggleBookmark = async function(bookId, isBookmarked) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
   try {
@@ -1162,7 +1276,6 @@ window.toggleBookmark = async function(bookId, isBookmarked) {
   }
 }
 
-// TOGGLE RECOMMENDATION
 window.toggleRecommendation = async function(bookId, isRecommended) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
   try {
@@ -1199,7 +1312,6 @@ async function loadUserRecommendations() {
   renderBookVertical('list-user-recommended', books)
 }
 
-// CAROUSEL BANNER & TAGS
 async function loadBanners() {
   const { data: banners } = await supabase.from('banners').select('*').order('created_at', { ascending: false })
   const slider = document.getElementById('banner-slider')
@@ -1355,7 +1467,6 @@ async function loadRecommendedUsersHome() {
   `).join('')
 }
 
-// EVENT HANDLER UNTUK MODAL FORM BUKU / AU TERPADU
 function setupBookFormModal() {
   const modalForm = document.getElementById('modal-book-form')
   const btnClose = document.getElementById('close-modal-book-form')
@@ -1393,6 +1504,7 @@ function setupBookFormModal() {
         "media_type": "Komik",
         "status": "Completed",
         "uploader_type": "reader",
+        "visibility": "public",
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
         "read_link": "https://kakao.com/solo-leveling",
         "read_link_2": "https://x.com/solo_leveling_au",
@@ -1455,17 +1567,17 @@ function setupBookFormModal() {
       genre: document.getElementById('book-genre').value || null,
       media_type: mediaType,
       status: document.getElementById('book-status').value,
+      visibility: document.getElementById('book-visibility')?.value || 'public',
       cover_url: document.getElementById('book-cover-url').value,
       preview_images: previewImagesArr,
       read_link: readLink1 || null,
       read_link_2: readLink2 || null,
       synopsis: document.getElementById('book-synopsis').value,
-      is_single_link: document.getElementById('book-is-single-link')?.checked || false,
+      is_single_link: partsData.length === 0,
       parts: partsData,
       uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader'),
       is_published: true, 
-      // JIKA ADMIN YANG TAMBAH CERITA -> USER_ID DI-NULL-KAN
-      user_id: isAdmin ? null : currentUser.id
+      user_id: isAdmin ? null : currentUser.id[span_0](start_span)[span_0](end_span)
     }
 
     if (isAdmin && document.getElementById('book-buy-link')) {
@@ -1522,6 +1634,7 @@ function setupBookFormModal() {
           genre: b.genre || null,
           media_type: b.media_type || 'Novel',
           status: b.status || 'Ongoing',
+          visibility: b.visibility || 'public',
           uploader_type: b.uploader_type || 'reader',
           is_published: true,
           synopsis: b.synopsis || null,
@@ -1529,8 +1642,7 @@ function setupBookFormModal() {
           read_link_2: b.read_link_2 || null,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
-          // JIKA ADMIN IMPORT BULK -> USER_ID DI-NULL-KAN
-          user_id: isAdmin ? null : (currentUser?.id || null)
+          user_id: isAdmin ? null : (currentUser?.id || null)[span_1](start_span)[span_1](end_span)
         }
       })
 
@@ -1570,7 +1682,9 @@ async function loadExploreBooks() {
   
   const listExplore = document.getElementById('list-explore')
   if (listExplore) {
-    renderBookVertical('list-explore', books)
+    let visibleBooks = books ? books.filter(b => b.visibility === 'public' || (currentUser && currentUser.id === b.user_id)) : []
+
+    renderBookVertical('list-explore', visibleBooks)
     
     const suggestPromptHTML = `
       <div style="grid-column: span 2; background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(56,189,248,0.15)); border: 1px dashed rgba(168,85,247,0.4); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
@@ -1677,7 +1791,6 @@ function setupNavigation() {
   })
 }
 
-// MANAGEMENT DASHBOARD PROFIL USER & ADMIN
 async function loadProfile() {
   const tabProfile = document.getElementById('tab-profile')
   if (!tabProfile) return
@@ -1711,7 +1824,6 @@ async function loadProfile() {
 
   tabProfile.innerHTML = `
     <div class="profile-card-hero" style="position:relative;">
-      <!-- MENU DROPDOWN TITIK TIGA DI PROFIL SENDIRI -->
       <div style="position:absolute; top:12px; right:12px; z-index:10;">
         <button onclick="document.getElementById('my-profile-dropdown').classList.toggle('hidden')" 
                 title="Opsi Profil" 
@@ -1745,7 +1857,6 @@ async function loadProfile() {
           ${sanitizeText(p?.bio) || 'Belum ada bio.'}
         </p>
 
-        <!-- TOMBOL UTAMA (2 TOMBOL) -->
         <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
           <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-pencil-square"></i> Edit Profil
@@ -1777,37 +1888,42 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- CARD DAFTAR KARYA SAYA -->
     <div class="glass-card space-y-3" style="padding:14px; margin-top:16px;">
       <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
-        📚 Daftar Karya Saya (${totalKarya})
+        📚 Daftar Karya & Perpustakaan Saya (${totalKarya})
       </h4>
 
       ${totalKarya === 0 ? `
         <p style="font-size:11px; color:#94a3b8;">Kamu belum pernah menambahkan cerita atau AU.</p>
       ` : `
         <div class="space-y-2">
-          ${userBooks.map(b => `
-            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
-              <div style="display:flex; align-items:center; justify-content:space-between;">
-                <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
-                  <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
-                  <div style="overflow:hidden;">
-                    <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
-                    <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span></p>
+          ${userBooks.map(b => {
+            let visBadge = ''
+            if (b.visibility === 'private') visBadge = '<span style="font-size:9px; background:rgba(239,68,68,0.25); color:#fca5a5; padding:1px 6px; border-radius:4px; font-weight:700;">🔒 Hanya Saya</span>'
+            else if (b.visibility === 'followers') visBadge = '<span style="font-size:9px; background:rgba(56,189,248,0.25); color:#7dd3fc; padding:1px 6px; border-radius:4px; font-weight:700;">👥 Pengikut</span>'
+
+            return `
+              <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                    <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
+                    <div style="overflow:hidden;">
+                      <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
+                      <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span> ${visBadge}</p>
+                    </div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
+                    <button onclick="openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      ✏️ Edit
+                    </button>
+                    <button onclick="deleteBook('${b.id}')" title="Hapus Cerita" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      🗑️
+                    </button>
                   </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
-                  <button onclick="openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                    ✏️ Edit
-                  </button>
-                  <button onclick="deleteBook('${b.id}')" title="Hapus Cerita" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
-                    🗑️
-                  </button>
-                </div>
               </div>
-            </div>
-          `).join('')}
+            `
+          }).join('')}
         </div>
       `}
     </div>
@@ -1833,7 +1949,6 @@ async function loadProfile() {
           </button>
         </div>
 
-        <!-- SEKSI MODERASI KELOLA LAPORAN -->
         <div style="padding-top:10px; border-top:1px dashed rgba(168,85,247,0.3);">
           <h5 style="font-size:12px; font-weight:800; color:#f87171; margin-bottom:8px;">
             🛡️ Kelola Laporan (Komentar, Karya, User)
@@ -1847,7 +1962,6 @@ async function loadProfile() {
       </div>
     ` : ''}
 
-    <!-- TOMBOL LOGOUT TERANG & RAPI -->
     <div class="glass-card" style="overflow:hidden; margin-top:16px;">
       <button id="btn-logout" class="btn-full" style="background:rgba(239, 68, 68, 0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); justify-content:space-between; padding:14px 16px; width:100%; font-weight:700; cursor:pointer;">
         <span style="display:flex; align-items:center; gap:8px;"><i class="bi bi-box-arrow-right"></i> Keluar dari Akun</span>
@@ -1874,7 +1988,6 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// MODERASI ADMIN LAPORAN LENGKAP
 async function loadAdminReportsList() {
   const container = document.getElementById('admin-reports-list')
   if (!container) return
@@ -2028,9 +2141,6 @@ window.dismissReport = async function(reportId) {
   }
 }
 
-// ==========================================
-// BANNER MANAGEMENT (TAMBAH, EDIT, HAPUS)
-// ==========================================
 async function renderAdminBannerList() {
   const container = document.getElementById('banner-admin-list')
   if (!container) return
@@ -2146,7 +2256,6 @@ function resetBannerForm() {
   if (btnSubmit) btnSubmit.innerText = 'Tambah Banner'
 }
 
-// TAG MANAGEMENT
 async function renderAdminTagList() {
   const container = document.getElementById('tag-admin-list')
   if (!container) return
@@ -2200,7 +2309,6 @@ async function loadAdminBooksList() {
   `
 }
 
-// SETUP AUTH & NOTIFIKASI
 function setupEditProfileModal() {
   const modalEdit = document.getElementById('modal-edit-profile')
   const btnClose = document.getElementById('close-modal-edit-profile')
@@ -2231,14 +2339,16 @@ function setupEditProfileModal() {
       full_name: inputFullname.value.trim(),
       username: cleanUsername,
       avatar_url: document.getElementById('edit-avatar-url').value.trim() || null,
-      bio: inputBio.value.trim() || null
+      bio: inputBio.value.trim() || null,
+      bookmark_visibility: document.getElementById('edit-bookmark-visibility')?.value || 'public',
+      recommendation_visibility: document.getElementById('edit-recommendation-visibility')?.value || 'public'
     }
 
     try {
       const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
       if (error) throw error
 
-      window.showToast('Profil Galaxy berhasil diperbarui!')
+      window.showToast('Profil Galaxy & Privasi diperbarui!')
       modalEdit?.classList.add('hidden')
       
       currentUser.profile = { ...currentUser.profile, ...updates }
@@ -2438,7 +2548,6 @@ async function initAppData() {
     checkUnreadNotifications()
   }
 
-  // PENANGANAN URL PARAMETER (SHARE BUKU & SHARE PROFIL)
   const urlParams = new URLSearchParams(window.location.search)
   
   const sharedBookId = urlParams.get('book') || urlParams.get('au')
