@@ -371,7 +371,7 @@ window.openBookDetail = async function(bookId) {
     if (detailContent) {
       detailContent.innerHTML = `
         <div style="position:relative; display:flex; gap:14px;">
-          <!-- MENU DROPDOWN TITIK TIGA DI PINGGIR UJUNG KANAN BUKU -->
+          <!-- MENU DROPDOWN TITIK TIGA -->
           <div style="position:absolute; top:0; right:0; z-index:10;">
             <button onclick="document.getElementById('book-menu-dropdown').classList.toggle('hidden')" 
                     title="Opsi Cerita" 
@@ -477,6 +477,13 @@ window.openBookDetail = async function(bookId) {
           ` : ''}
         </div>
 
+        <!-- SINOPSIS PINDAH KE SINI (DI ATAS DAFTAR PART) -->
+        <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
+          <h4 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:4px;">Sinopsis</h4>
+          <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
+        </div>
+
+        <!-- DAFTAR LINK PART SEKARANG DI BAWAH SINOPSIS -->
         ${parts.length > 0 ? `
           <div style="padding-top:10px; border-top:1px solid rgba(168,85,247,0.2);">
             <h4 style="font-size:12px; font-weight:800; color:#38bdf8; margin-bottom:8px;">📱 Daftar Part Thread / Post (${parts.length} Part):</h4>
@@ -491,11 +498,6 @@ window.openBookDetail = async function(bookId) {
             </div>
           </div>
         ` : ''}
-
-        <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
-          <h4 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:4px;">Sinopsis</h4>
-          <p style="font-size:12px; color:#cbd5e1; line-height:1.5;">${sanitizeText(book.synopsis) || 'Belum ada sinopsis.'}</p>
-        </div>
 
         <!-- KOMENTAR -->
         <div style="padding-top:12px; border-top:1px solid rgba(168,85,247,0.2);">
