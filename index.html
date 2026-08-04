@@ -187,7 +187,7 @@
   <div id="modal-edit-profile" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
       <div class="modal-header">
-        <span class="modal-title">✏️ Edit Profil & Privasi</span>
+        <span class="modal-title">✏️ Edit Profil</span>
         <button id="close-modal-edit-profile" class="modal-close"><i class="bi bi-x-lg"></i></button>
       </div>
 
@@ -209,127 +209,125 @@
           <textarea id="edit-bio" maxlength="150" rows="3" placeholder="Tuliskan kata-kata favoritmu..." class="form-input" style="resize:none;"></textarea>
         </div>
 
-        <!-- DROPDOWN PENGATURAN PRIVASI PROFIL -->
-        <div class="glass-card space-y-3" style="padding:12px; margin-top:8px;">
-          <label style="font-size:11px; font-weight:800; color:#c084fc;">🔒 Pengaturan Privasi Profil</label>
-          
-          <div class="form-group">
-            <label style="font-size:10px;">❤️ Privasi Tab Bookmark</label>
-            <select id="edit-bookmark-visibility" class="form-input" style="font-size:11px;">
-              <option value="public">🌐 Publik (Dapat Dilihat Semua Orang)</option>
-              <option value="followers">👥 Hanya Pengikut Saya</option>
-              <option value="private">🔒 Hanya Saya (Sembunyikan)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label style="font-size:10px;">⭐ Privasi Tab Rekomendasi</label>
-            <select id="edit-recommendation-visibility" class="form-input" style="font-size:11px;">
-              <option value="public">🌐 Publik (Dapat Dilihat Semua Orang)</option>
-              <option value="followers">👥 Hanya Pengikut Saya</option>
-              <option value="private">🔒 Hanya Saya (Sembunyikan)</option>
-            </select>
-          </div>
-        </div>
-
         <button type="submit" class="btn-full btn-galaxy-primary">Simpan Perubahan</button>
       </form>
     </div>
   </div>
 
-  <!-- MODAL LOGIN / REGISTER -->
-  <div id="modal-auth" class="modal-overlay hidden">
-    <div class="modal-box space-y-4">
-      <button id="close-modal-auth" class="modal-close"><i class="bi bi-x-lg"></i></button>
-
-      <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:16px; padding-bottom:8px;">
-        <button id="tab-auth-login" class="auth-tab active">Masuk</button>
-        <button id="tab-auth-register" class="auth-tab">Daftar Akun</button>
-      </div>
-
-      <form id="form-login" class="space-y-3">
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="login-email" required placeholder="nama@email.com" class="form-input">
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="login-password" required placeholder="******" class="form-input">
-        </div>
-        <button type="submit" class="btn-full btn-galaxy-primary">Masuk</button>
-      </form>
-
-      <form id="form-register" class="space-y-3 hidden">
-        <div class="form-group">
-          <label>Nama Lengkap</label>
-          <input type="text" id="reg-fullname" required placeholder="Nama Kamu" class="form-input">
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="reg-email" required placeholder="nama@email.com" class="form-input">
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="reg-password" required placeholder="Minimal 6 karakter" class="form-input">
-        </div>
-        <button type="submit" class="btn-full btn-galaxy-primary">Buat Akun</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL DETAIL BUKU / AU -->
-  <div id="modal-detail" class="modal-overlay hidden">
+  <!-- MODAL PENGATURAN PRIVASI TAB -->
+  <div id="modal-privacy-settings" class="modal-overlay hidden">
     <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
-        <span class="modal-title">📖 Detail Cerita / AU</span>
-        <button id="close-modal-detail" class="modal-close"><i class="bi bi-x-lg"></i></button>
+        <span class="modal-title" style="color:#c084fc;">🔒 Privasi Profil & Koleksi</span>
+        <button id="close-modal-privacy-settings" class="modal-close" onclick="document.getElementById('modal-privacy-settings').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
       </div>
-      <div id="detail-content" class="space-y-4"></div>
-    </div>
-  </div>
 
-  <!-- MODAL SEMUA KOMENTAR -->
-  <div id="modal-all-comments" class="modal-overlay hidden">
-    <div class="modal-box space-y-4" style="max-height: 85vh; overflow-y: auto;">
-      <div class="modal-header">
-        <span id="all-comments-title" class="modal-title" style="color:#c084fc;">💬 Semua Komentar</span>
-        <button id="close-modal-all-comments" class="modal-close" onclick="document.getElementById('modal-all-comments').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
-      </div>
-      <div id="all-comments-list" class="space-y-3"></div>
-      <form id="form-full-comment" class="space-y-2" style="padding-top:8px; border-top:1px solid rgba(168,85,247,0.2);">
-        <textarea id="full-comment-input" rows="2" placeholder="Tulis komentar kamu..." class="form-input" style="resize:none;" required></textarea>
-        <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#cbd5e1; cursor:pointer;">
-          <input type="checkbox" id="full-comment-anonymous" style="accent-color:#a855f7;">
-          <span>Kirim sebagai Anonim (Tanpa Nama Profil)</span>
-        </label>
-        <button type="submit" class="btn-full btn-galaxy-primary" style="font-size:12px;">Kirim Komentar</button>
+      <form id="form-privacy-settings" class="space-y-4">
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
+            ❤️ Hak Akses Tab Bookmark
+          </label>
+          <div class="custom-privacy-options" id="group-privacy-bookmark">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'bm', 'public')">
+              <input type="radio" name="bm_vis" value="public" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Publik</div>
+                  <div class="privacy-pill-desc">Dapat dilihat oleh semua pengguna</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'bm', 'followers')">
+              <input type="radio" name="bm_vis" value="followers">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
+                  <div class="privacy-pill-desc">Hanya akun yang mengikuti kamu</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'bm', 'private')">
+              <input type="radio" name="bm_vis" value="private">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Saya</div>
+                  <div class="privacy-pill-desc">Disembunyikan dari semua pengguna</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid rgba(168,85,247,0.2);">
+
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
+            ⭐ Hak Akses Tab Rekomendasi
+          </label>
+          <div class="custom-privacy-options" id="group-privacy-rec">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'rec', 'public')">
+              <input type="radio" name="rec_vis" value="public" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Publik</div>
+                  <div class="privacy-pill-desc">Dapat dilihat oleh semua pengguna</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'rec', 'followers')">
+              <input type="radio" name="rec_vis" value="followers">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
+                  <div class="privacy-pill-desc">Hanya akun yang mengikuti kamu</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'rec', 'private')">
+              <input type="radio" name="rec_vis" value="private">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Saya</div>
+                  <div class="privacy-pill-desc">Disembunyikan dari semua pengguna</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-full btn-galaxy-primary" style="margin-top:8px;">Simpan Perubahan Privasi</button>
       </form>
     </div>
   </div>
 
-  <!-- MODAL LAPORAN SERBAGUNA -->
-  <div id="modal-report" class="modal-overlay hidden">
+  <!-- MODAL DAFTAR USER DIBLOKIR -->
+  <div id="modal-blocked-list" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
       <div class="modal-header">
-        <span id="report-modal-title" class="modal-title" style="color:#f87171;">Laporkan Konten</span>
-        <button id="close-modal-report" class="modal-close"><i class="bi bi-x-lg"></i></button>
+        <span class="modal-title" style="color:#f87171;">🚫 Akun Diblokir</span>
+        <button id="close-modal-blocked-list" class="modal-close" onclick="document.getElementById('modal-blocked-list').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
       </div>
-      <input type="hidden" id="report-target-type">
-      <input type="hidden" id="report-target-id">
-      <input type="hidden" id="report-context-id">
-      
-      <div class="form-group">
-        <label>Alasan Pelaporan</label>
-        <textarea id="report-reason-input" rows="3" placeholder="Misal: Spam, SARA, Konten Mengganggu, Penipuan..." class="form-input" style="resize:none;" required></textarea>
-      </div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-        <button type="button" id="btn-cancel-report" class="btn-full" style="background:rgba(255,255,255,0.1); color:#cbd5e1;">Batal</button>
-        <button type="button" id="btn-submit-report" class="btn-full" style="background:#ef4444; color:white; font-weight:700;">Kirim Laporan</button>
-      </div>
+      <div id="blocked-users-container" class="space-y-2"></div>
     </div>
   </div>
 
-  <!-- MODAL FORM TERPADU -->
+  <!-- MODAL FORM TERPADU UNTUK BUKU/AU (TANPA DROPDOWN PUTIH BAWAAN) -->
   <div id="modal-book-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
@@ -356,22 +354,92 @@
       <form id="form-book" class="space-y-3">
         <input type="hidden" id="book-id">
 
-        <div class="form-group">
-          <label style="color:#c084fc; font-weight:800;">🔒 Hak Akses / Privasi Cerita</label>
-          <select id="book-visibility" class="form-input">
-            <option value="public">🌐 Publik (Dapat Dilihat Semua Orang)</option>
-            <option value="followers">👥 Hanya Pengikut Saya</option>
-            <option value="private">🔒 Hanya Saya (Perpustakaan Pribadi)</option>
-          </select>
+        <!-- 1. PRIVASI CERITA (CUSTOM PILLS) -->
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#c084fc; display:block; margin-bottom:4px;">
+            🔒 Hak Akses / Privasi Cerita
+          </label>
+          <div class="custom-privacy-options" id="group-privacy-book">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'book', 'public')">
+              <input type="radio" name="book_vis" value="public" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Publik</div>
+                  <div class="privacy-pill-desc">Dapat dilihat oleh semua orang</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers')">
+              <input type="radio" name="book_vis" value="followers">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
+                  <div class="privacy-pill-desc">Hanya dikunci untuk pengikut akun kamu</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'private')">
+              <input type="radio" name="book_vis" value="private">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Saya</div>
+                  <div class="privacy-pill-desc">Arsip/Perpustakaan Pribadi</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
         </div>
         
-        <div class="form-group">
-          <label>Tipe Karya / Media</label>
-          <select id="book-media-type" class="form-input">
-            <option value="Novel">Novel</option>
-            <option value="Komik">Komik</option>
-            <option value="Sosmed AU">Sosmed AU</option>
-          </select>
+        <!-- 2. TIPE KARYA (CUSTOM PILLS) -->
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
+            📚 Tipe Karya / Media
+          </label>
+          <div class="custom-privacy-options" id="group-media-type">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'media', 'Novel'); toggleMediaTypeFields();">
+              <input type="radio" name="media_type_radio" value="Novel" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-book-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Novel</div>
+                  <div class="privacy-pill-desc">Cerita berbasis teks & narasi</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'media', 'Komik'); toggleMediaTypeFields();">
+              <input type="radio" name="media_type_radio" value="Komik">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-palette-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Komik / Manga</div>
+                  <div class="privacy-pill-desc">Cerita berbasis visual bergambar</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'media', 'Sosmed AU'); toggleMediaTypeFields();">
+              <input type="radio" name="media_type_radio" value="Sosmed AU">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-phone-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Sosmed AU</div>
+                  <div class="privacy-pill-desc">Alternate Universe format sosmed (X/IG/TikTok)</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
         </div>
 
         <div class="form-group">
@@ -379,12 +447,36 @@
           <input type="text" id="book-title" required placeholder="Contoh: Solo Leveling / Lucky Girl" class="form-input">
         </div>
 
-        <div class="form-group" id="group-uploader-type">
-          <label>Kepemilikan Karya / Status Pengunggah</label>
-          <select id="book-uploader-type" class="form-input">
-            <option value="reader">📖 Saya Pembaca (Karya Orang Lain)</option>
-            <option value="writer">✍️ Saya Penulis (Karya Saya Sendiri)</option>
-          </select>
+        <!-- 3. KEPEMILIKAN KARYA (CUSTOM PILLS) -->
+        <div id="group-uploader-type">
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
+            👤 Status Pengunggah
+          </label>
+          <div class="custom-privacy-options" id="group-uploader-status">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'uploader', 'reader')">
+              <input type="radio" name="uploader_type_radio" value="reader" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-book"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Saya Pembaca (Reader)</div>
+                  <div class="privacy-pill-desc">Membagikan karya milik orang lain</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'uploader', 'writer')">
+              <input type="radio" name="uploader_type_radio" value="writer">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-pen-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Saya Penulis (Writer)</div>
+                  <div class="privacy-pill-desc">Karya original buatan saya sendiri</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
         </div>
 
         <div class="form-group">
@@ -402,12 +494,36 @@
           <input type="text" id="book-genre" maxlength="50" placeholder="Action, Romance, Angst" class="form-input">
         </div>
 
-        <div class="form-group">
-          <label>Status Cerita</label>
-          <select id="book-status" class="form-input">
-            <option value="Ongoing">Ongoing</option>
-            <option value="Completed">Completed</option>
-          </select>
+        <!-- 4. STATUS CERITA (CUSTOM PILLS) -->
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
+            📌 Status Cerita
+          </label>
+          <div class="custom-privacy-options" id="group-story-status">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'status', 'Ongoing')">
+              <input type="radio" name="story_status_radio" value="Ongoing" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Ongoing</div>
+                  <div class="privacy-pill-desc">Masih dalam proses penulisan</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'status', 'Completed')">
+              <input type="radio" name="story_status_radio" value="Completed">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Completed</div>
+                  <div class="privacy-pill-desc">Cerita sudah tamat</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
         </div>
 
         <div class="form-group">
@@ -465,7 +581,7 @@
             📋 Isi Template Contoh
           </button>
         </div>
-        <textarea id="bulk-json-input" rows="10" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "platform": "Wattpad",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
+        <textarea id="bulk-json-input" rows="12" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "platform": "Wattpad",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
         <button type="submit" class="btn-full btn-galaxy-primary">🚀 Import Semua Buku</button>
       </form>
     </div>
@@ -628,6 +744,46 @@
         <button id="btn-confirm-cancel" class="btn-full" style="background: rgba(255,255,255,0.1); color: #cbd5e1;">Batal</button>
         <button id="btn-confirm-action" class="btn-full" style="background: #ef4444; color: white;">Ya, Hapus</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN / REGISTER -->
+  <div id="modal-auth" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <button id="close-modal-auth" class="modal-close"><i class="bi bi-x-lg"></i></button>
+
+      <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:16px; padding-bottom:8px;">
+        <button id="tab-auth-login" class="auth-tab active">Masuk</button>
+        <button id="tab-auth-register" class="auth-tab">Daftar Akun</button>
+      </div>
+
+      <form id="form-login" class="space-y-3">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" required placeholder="nama@email.com" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" required placeholder="******" class="form-input">
+        </div>
+        <button type="submit" class="btn-full btn-galaxy-primary">Masuk</button>
+      </form>
+
+      <form id="form-register" class="space-y-3 hidden">
+        <div class="form-group">
+          <label>Nama Lengkap</label>
+          <input type="text" id="reg-fullname" required placeholder="Nama Kamu" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" required placeholder="nama@email.com" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="reg-password" required placeholder="Minimal 6 karakter" class="form-input">
+        </div>
+        <button type="submit" class="btn-full btn-galaxy-primary">Buat Akun</button>
+      </form>
     </div>
   </div>
 

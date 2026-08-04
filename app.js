@@ -60,6 +60,43 @@ function isTrustedUrl(urlStr) {
   }
 }
 
+// HELPER SELECTOR PILL KUSTOM (GALAXY UI)
+window.selectCustomPill = function(element, groupPrefix, value) {
+  const container = element.parentElement
+  if (!container) return
+
+  container.querySelectorAll('.privacy-pill').forEach(pill => {
+    pill.classList.remove('active')
+    const radio = pill.querySelector('input[type="radio"]')
+    if (radio) radio.checked = false
+  })
+
+  element.classList.add('active')
+  const targetRadio = element.querySelector('input[type="radio"]')
+  if (targetRadio) targetRadio.checked = true
+}
+
+function setPillValue(groupContainerId, value) {
+  const container = document.getElementById(groupContainerId)
+  if (!container) return
+
+  const targetRadio = container.querySelector(`input[value="${value}"]`)
+  if (targetRadio) {
+    const pillLabel = targetRadio.closest('.privacy-pill')
+    if (pillLabel) {
+      const groupPrefix = groupContainerId.replace('group-privacy-', '')
+      window.selectCustomPill(pillLabel, groupPrefix, value)
+    }
+  }
+}
+
+function getPillValue(groupContainerId) {
+  const container = document.getElementById(groupContainerId)
+  if (!container) return 'public'
+  const checkedRadio = container.querySelector('input[type="radio"]:checked')
+  return checkedRadio ? checkedRadio.value : 'public'
+}
+
 // HELPER CEK PRIVASI BUKU
 async function canUserAccessBook(book) {
   if (!book) return false
@@ -216,15 +253,11 @@ window.openEditProfileModal = function() {
   const uName = document.getElementById('edit-username')
   const aUrl = document.getElementById('edit-avatar-url')
   const bio = document.getElementById('edit-bio')
-  const bmVis = document.getElementById('edit-bookmark-visibility')
-  const recVis = document.getElementById('edit-recommendation-visibility')
 
   if (fName) fName.value = p?.full_name || ''
   if (uName) uName.value = p?.username || ''
   if (aUrl) aUrl.value = p?.avatar_url || ''
   if (bio) bio.value = p?.bio || ''
-  if (bmVis) bmVis.value = p?.bookmark_visibility || 'public'
-  if (recVis) recVis.value = p?.recommendation_visibility || 'public'
 
   const cF = document.getElementById('count-fullname')
   const cU = document.getElementById('count-username')
@@ -236,6 +269,17 @@ window.openEditProfileModal = function() {
 
   document.getElementById('modal-edit-profile')?.classList.remove('hidden')
   pushHistoryState('modal', 'modal-edit-profile')
+}
+
+window.openPrivacySettingsModal = function() {
+  if (!currentUser) return
+  const p = currentUser.profile
+  const modal = document.getElementById('modal-privacy-settings')
+
+  setPillValue('group-privacy-bookmark', p?.bookmark_visibility || 'public')
+  setPillValue('group-privacy-rec', p?.recommendation_visibility || 'public')
+
+  modal?.classList.remove('hidden')
 }
 
 window.openBookFormById = async function(bookId = null) {
@@ -269,18 +313,18 @@ window.openBookFormById = async function(bookId = null) {
       document.getElementById('book-author').value = book.author || ''
       document.getElementById('book-platform').value = book.platform || ''
       document.getElementById('book-genre').value = book.genre || ''
-      document.getElementById('book-media-type').value = book.media_type || 'Novel'
-      document.getElementById('book-status').value = book.status || 'Ongoing'
+      
+      setPillValue('group-privacy-book', book.visibility || 'public')
+      setPillValue('group-media-type', book.media_type || 'Novel')
+      setPillValue('group-story-status', book.status || 'Ongoing')
+      
+      if (!isAdmin) {
+        setPillValue('group-uploader-status', book.uploader_type || 'reader')
+      }
+
       document.getElementById('book-cover-url').value = book.cover_url || ''
       document.getElementById('book-read-link').value = book.read_link || ''
       document.getElementById('book-read-link-2').value = book.read_link_2 || ''
-      
-      if (document.getElementById('book-visibility')) {
-        document.getElementById('book-visibility').value = book.visibility || 'public'
-      }
-
-      const uploaderSelect = document.getElementById('book-uploader-type')
-      if (uploaderSelect) uploaderSelect.value = book.uploader_type || 'reader'
 
       if (isAdmin && document.getElementById('book-buy-link')) {
         document.getElementById('book-buy-link').value = book.buy_link || ''
@@ -306,6 +350,12 @@ window.openBookFormById = async function(bookId = null) {
   } else {
     if (titleEl) titleEl.innerText = '🚀 Tambah Cerita / AU Baru'
     document.getElementById('book-id').value = ''
+    
+    setPillValue('group-privacy-book', 'public')
+    setPillValue('group-media-type', 'Novel')
+    setPillValue('group-uploader-status', 'reader')
+    setPillValue('group-story-status', 'Ongoing')
+
     window.toggleMediaTypeFields()
   }
 
@@ -314,7 +364,7 @@ window.openBookFormById = async function(bookId = null) {
 }
 
 window.toggleMediaTypeFields = function() {
-  const mediaType = document.getElementById('book-media-type')?.value
+  const mediaType = getPillValue('group-media-type')
   const auFields = document.getElementById('au-specific-fields')
   if (auFields) {
     auFields.style.display = (mediaType === 'Sosmed AU') ? 'block' : 'none'
@@ -365,7 +415,6 @@ window.openBookDetail = async function(bookId) {
     const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
     if (!book) return
 
-    // CEK APAKAH PEMBUAT BUKU MENGEBLOKIR/DIBLOKIR
     if (book.user_id && currentUser) {
       const { isBlockedByMe, isBlockingMe } = await checkBlockStatus(book.user_id)
       if (isBlockedByMe || isBlockingMe) {
@@ -911,7 +960,6 @@ window.toggleBlockUser = function(targetUserId, currentlyBlocked) {
   window.showConfirmModal(`${actionName} Pengguna`, actionMsg, async () => {
     try {
       if (currentlyBlocked) {
-        // UNBLOCK
         const { error } = await supabase.from('blocked_users')
           .delete()
           .eq('blocker_id', currentUser.id)
@@ -920,7 +968,6 @@ window.toggleBlockUser = function(targetUserId, currentlyBlocked) {
         if (error) throw error
         window.showToast('Berhasil membuka blokir!')
       } else {
-        // BLOCK
         const { error } = await supabase.from('blocked_users').insert({
           blocker_id: currentUser.id,
           blocked_id: targetUserId
@@ -928,7 +975,6 @@ window.toggleBlockUser = function(targetUserId, currentlyBlocked) {
 
         if (error) throw error
 
-        // HAPUS HUBUNGAN FOLLOW SAAT DIBLOKIR
         await supabase.from('follows').delete().or(`and(follower_id.eq.${currentUser.id},following_id.eq.${targetUserId}),and(follower_id.eq.${targetUserId},following_id.eq.${currentUser.id})`)
 
         window.showToast('Pengguna berhasil diblokir!')
@@ -944,7 +990,7 @@ window.toggleBlockUser = function(targetUserId, currentlyBlocked) {
   })
 }
 
-// PROFIL PUBLIK PENGGUNA LAIN (SOPAN & KEDAP BLOKIR)
+// PROFIL PUBLIK PENGGUNA LAIN
 window.openUserProfile = async function(userId) {
   if (currentUser && currentUser.id === userId) {
     window.switchTab('tab-profile')
@@ -966,7 +1012,6 @@ window.openUserProfile = async function(userId) {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (!profile) return window.showToast('Profil tidak ditemukan', 'error')
 
-    // CEK STATUS BLOKIR DUA ARAH
     const { isBlockedByMe, isBlockingMe } = await checkBlockStatus(userId)
 
     if (isBlockingMe) {
@@ -1285,7 +1330,7 @@ window.openSocialModal = async function(type) {
   }
 }
 
-// MEMUAT BUKU POPULER (DENGAN FILTER USER DIBLOKIR 2 ARAH)
+// MEMUAT BUKU POPULER
 async function loadHomeBooks() {
   let blockedUserIds = []
   if (currentUser) {
@@ -1618,6 +1663,7 @@ function setupBookFormModal() {
     formBook?.classList.add('hidden')
   })
 
+  // TEMPLATE UTUH & AKURAT (USER READER/WRITER)
   btnFillTemplate?.addEventListener('click', () => {
     const template = [
       {
@@ -1630,10 +1676,16 @@ function setupBookFormModal() {
         "uploader_type": "reader",
         "visibility": "public",
         "cover_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500",
-        "read_link": "https://kakao.com/solo-leveling",
+        "read_link": "https://kakaopage.com/solo-leveling",
         "read_link_2": "https://x.com/solo_leveling_au",
-        "buy_link": "https://tokopedia.com/komik-solo-leveling",
-        "synopsis": "Sung Jinwoo pemburu terlemah menjadi terkuat."
+        "synopsis": "Sung Jinwoo pemburu terlemah menjadi terkuat.",
+        "preview_images": [
+          "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500"
+        ],
+        "parts": [
+          { "part": 1, "url": "https://x.com/solo_leveling_au/status/1" },
+          { "part": 2, "url": "https://x.com/solo_leveling_au/status/2" }
+        ]
       }
     ]
     const bulkInput = document.getElementById('bulk-json-input')
@@ -1646,15 +1698,15 @@ function setupBookFormModal() {
     container?.insertAdjacentHTML('beforeend', window.createAuPartInput('', currentCount))
   })
 
-  document.getElementById('book-media-type')?.addEventListener('change', window.toggleMediaTypeFields)
-
   formBook?.addEventListener('submit', async (e) => {
     e.preventDefault()
     if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
     const id = document.getElementById('book-id').value
     const isAdmin = currentUser?.profile?.role === 'admin'
-    const mediaType = document.getElementById('book-media-type').value
+    const mediaType = getPillValue('group-media-type')
+    const storyStatus = getPillValue('group-story-status')
+    const uploaderType = isAdmin ? null : getPillValue('group-uploader-status')
     
     const readLink1 = document.getElementById('book-read-link').value.trim()
     const readLink2 = document.getElementById('book-read-link-2').value.trim()
@@ -1684,14 +1736,16 @@ function setupBookFormModal() {
       return window.showToast('Salah satu URL Part tidak berasal dari platform resmi terpercaya!', 'error')
     }
 
+    const bookVisibilityVal = getPillValue('group-privacy-book')
+
     const payload = {
       title: document.getElementById('book-title').value,
       author: document.getElementById('book-author').value,
       platform: document.getElementById('book-platform').value.trim() || null,
       genre: document.getElementById('book-genre').value || null,
       media_type: mediaType,
-      status: document.getElementById('book-status').value,
-      visibility: document.getElementById('book-visibility')?.value || 'public',
+      status: storyStatus,
+      visibility: bookVisibilityVal,
       cover_url: document.getElementById('book-cover-url').value,
       preview_images: previewImagesArr,
       read_link: readLink1 || null,
@@ -1699,7 +1753,7 @@ function setupBookFormModal() {
       synopsis: document.getElementById('book-synopsis').value,
       is_single_link: partsData.length === 0,
       parts: partsData,
-      uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader'),
+      uploader_type: uploaderType,
       is_published: true, 
       user_id: isAdmin ? null : currentUser.id
     }
@@ -1764,8 +1818,10 @@ function setupBookFormModal() {
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
           read_link_2: b.read_link_2 || null,
-          buy_link: b.buy_link || null,
+          // HANYA ADMIN YANG DAPAT INPUT BUY_LINK KARTU
+          buy_link: isAdmin ? (b.buy_link || null) : null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
+          parts: Array.isArray(b.parts) ? b.parts : [],
           user_id: isAdmin ? null : (currentUser?.id || null)
         }
       })
@@ -1839,7 +1895,6 @@ async function loadExploreBooks() {
   }
 }
 
-// FILTER EXPLORE USERS AGAR USER BLOKIRAN GAK MUNCUL DI PENCARIAN
 async function loadExploreUsers() {
   const container = document.getElementById('list-explore-users')
   const searchInput = document.getElementById('explore-search')
@@ -1945,6 +2000,7 @@ function setupNavigation() {
   })
 }
 
+// PROFIL SAYA (TITIK TIGA BERISI PRIVASI & DIBLOKIR)
 async function loadProfile() {
   const tabProfile = document.getElementById('tab-profile')
   if (!tabProfile) return
@@ -1978,6 +2034,7 @@ async function loadProfile() {
 
   tabProfile.innerHTML = `
     <div class="profile-card-hero" style="position:relative;">
+      <!-- MENU DROPDOWN TITIK TIGA -->
       <div style="position:absolute; top:12px; right:12px; z-index:10;">
         <button onclick="document.getElementById('my-profile-dropdown').classList.toggle('hidden')" 
                 title="Opsi Profil" 
@@ -1986,13 +2043,27 @@ async function loadProfile() {
         </button>
 
         <div id="my-profile-dropdown" class="hidden" 
-             style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+             style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:170px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
           
           <button onclick="shareProfile('${currentUser.id}'); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
                   style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                   onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
                   onmouseout="this.style.background='transparent'">
             <i class="bi bi-share-fill" style="color:#38bdf8;"></i> Bagikan Profil
+          </button>
+
+          <button onclick="openPrivacySettingsModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+                  style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                  onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
+                  onmouseout="this.style.background='transparent'">
+            <i class="bi bi-lock-fill" style="color:#c084fc;"></i> Privasi Tab
+          </button>
+
+          <button onclick="openBlockedUsersModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+                  style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
+                  onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
+                  onmouseout="this.style.background='transparent'">
+            <i class="bi bi-slash-circle-fill"></i> Akun Diblokir
           </button>
         </div>
       </div>
@@ -2140,6 +2211,138 @@ async function loadProfile() {
     loadAdminBooksList()
   }
   document.getElementById('btn-logout')?.addEventListener('click', logout)
+}
+
+// SIMPAN PRIVASI TAB
+document.getElementById('form-privacy-settings')?.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  if (!currentUser) return
+
+  const updates = {
+    bookmark_visibility: getPillValue('group-privacy-bookmark'),
+    recommendation_visibility: getPillValue('group-privacy-rec')
+  }
+
+  try {
+    const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
+    if (error) throw error
+
+    window.showToast('Pengaturan privasi diperbarui!')
+    document.getElementById('modal-privacy-settings')?.classList.add('hidden')
+    currentUser.profile = { ...currentUser.profile, ...updates }
+  } catch (err) {
+    window.showToast('Gagal update privasi: ' + err.message, 'error')
+  }
+})
+
+function setupEditProfileModal() {
+  const modalEdit = document.getElementById('modal-edit-profile')
+  const btnClose = document.getElementById('close-modal-edit-profile')
+  const formEdit = document.getElementById('form-edit-profile')
+
+  const inputFullname = document.getElementById('edit-fullname')
+  const inputUsername = document.getElementById('edit-username')
+  const inputBio = document.getElementById('edit-bio')
+
+  btnClose?.addEventListener('click', () => modalEdit?.classList.add('hidden'))
+
+  const updateCounts = () => {
+    if (inputFullname) document.getElementById('count-fullname').innerText = `${inputFullname.value.length}/30`
+    if (inputUsername) document.getElementById('count-username').innerText = `${inputUsername.value.length}/20`
+    if (inputBio) document.getElementById('count-bio').innerText = `${inputBio.value.length}/150`
+  }
+
+  inputFullname?.addEventListener('input', updateCounts)
+  inputUsername?.addEventListener('input', updateCounts)
+  inputBio?.addEventListener('input', updateCounts)
+
+  formEdit?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (!currentUser) return
+    const cleanUsername = inputUsername.value.trim().replace(/\s+/g, '').toLowerCase()
+
+    const updates = {
+      full_name: inputFullname.value.trim(),
+      username: cleanUsername,
+      avatar_url: document.getElementById('edit-avatar-url').value.trim() || null,
+      bio: inputBio.value.trim() || null
+    }
+
+    try {
+      const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
+      if (error) throw error
+
+      window.showToast('Profil diperbarui!')
+      modalEdit?.classList.add('hidden')
+      
+      currentUser.profile = { ...currentUser.profile, ...updates }
+      setupAuthUI()
+      loadProfile()
+    } catch (err) {
+      window.showToast('Gagal update profil: ' + err.message, 'error')
+    }
+  })
+}
+
+// BUKA MODAL DAFTAR USER DIBLOKIR DARI TITIK TIGA
+window.openBlockedUsersModal = async function() {
+  if (!currentUser) return
+  
+  const modal = document.getElementById('modal-blocked-list')
+  const container = document.getElementById('blocked-users-container')
+  if (!container) return
+
+  container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">Memuat akun diblokir...</p>`
+  modal?.classList.remove('hidden')
+
+  try {
+    const { data: blockedList, error } = await supabase
+      .from('blocked_users')
+      .select('*, blocked_user:profiles!blocked_users_blocked_id_fkey(*)')
+      .eq('blocker_id', currentUser.id)
+
+    if (error || !blockedList || blockedList.length === 0) {
+      container.innerHTML = `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">Kamu belum memblokir siapa pun.</p>`
+      return
+    }
+
+    container.innerHTML = blockedList.map(item => `
+      <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:12px; border:1px solid rgba(239,68,68,0.2);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="${sanitizeText(item.blocked_user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.blocked_id}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1px solid #f87171;">
+          <div>
+            <h5 style="font-size:12px; font-weight:700; color:#f8fafc;">${sanitizeText(item.blocked_user?.full_name) || 'User'}</h5>
+            <p style="font-size:10px; color:#38bdf8;">@${sanitizeText(item.blocked_user?.username) || 'user'}</p>
+          </div>
+        </div>
+        <button onclick="unblockFromList('${item.blocked_id}')" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer;">
+          🔓 Buka Blokir
+        </button>
+      </div>
+    `).join('')
+  } catch (err) {
+    container.innerHTML = `<p style="font-size:11px; color:#f87171; text-align:center; padding:16px 0;">Gagal memuat daftar.</p>`
+  }
+}
+
+window.unblockFromList = function(targetUserId) {
+  window.showConfirmModal('Buka Blokir', 'Apakah kamu yakin ingin membuka blokir pengguna ini?', async () => {
+    try {
+      const { error } = await supabase.from('blocked_users')
+        .delete()
+        .eq('blocker_id', currentUser.id)
+        .eq('blocked_id', targetUserId)
+
+      if (error) throw error
+
+      window.showToast('Berhasil membuka blokir!')
+      window.openBlockedUsersModal()
+      loadHomeBooks()
+      loadExploreBooks()
+    } catch (err) {
+      window.showToast('Gagal membuka blokir: ' + err.message, 'error')
+    }
+  })
 }
 
 async function loadAdminReportsList() {
@@ -2461,57 +2664,6 @@ async function loadAdminBooksList() {
       </div>
     </div>
   `
-}
-
-function setupEditProfileModal() {
-  const modalEdit = document.getElementById('modal-edit-profile')
-  const btnClose = document.getElementById('close-modal-edit-profile')
-  const formEdit = document.getElementById('form-edit-profile')
-
-  const inputFullname = document.getElementById('edit-fullname')
-  const inputUsername = document.getElementById('edit-username')
-  const inputBio = document.getElementById('edit-bio')
-
-  btnClose?.addEventListener('click', () => modalEdit?.classList.add('hidden'))
-
-  const updateCounts = () => {
-    if (inputFullname) document.getElementById('count-fullname').innerText = `${inputFullname.value.length}/30`
-    if (inputUsername) document.getElementById('count-username').innerText = `${inputUsername.value.length}/20`
-    if (inputBio) document.getElementById('count-bio').innerText = `${inputBio.value.length}/150`
-  }
-
-  inputFullname?.addEventListener('input', updateCounts)
-  inputUsername?.addEventListener('input', updateCounts)
-  inputBio?.addEventListener('input', updateCounts)
-
-  formEdit?.addEventListener('submit', async (e) => {
-    e.preventDefault()
-    if (!currentUser) return
-    const cleanUsername = inputUsername.value.trim().replace(/\s+/g, '').toLowerCase()
-
-    const updates = {
-      full_name: inputFullname.value.trim(),
-      username: cleanUsername,
-      avatar_url: document.getElementById('edit-avatar-url').value.trim() || null,
-      bio: inputBio.value.trim() || null,
-      bookmark_visibility: document.getElementById('edit-bookmark-visibility')?.value || 'public',
-      recommendation_visibility: document.getElementById('edit-recommendation-visibility')?.value || 'public'
-    }
-
-    try {
-      const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
-      if (error) throw error
-
-      window.showToast('Profil Galaxy & Privasi diperbarui!')
-      modalEdit?.classList.add('hidden')
-      
-      currentUser.profile = { ...currentUser.profile, ...updates }
-      setupAuthUI()
-      loadProfile()
-    } catch (err) {
-      window.showToast('Gagal update profil: ' + err.message, 'error')
-    }
-  })
 }
 
 function setupAuthModal() {
