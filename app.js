@@ -1464,7 +1464,8 @@ function setupBookFormModal() {
       parts: partsData,
       uploader_type: isAdmin ? null : (document.getElementById('book-uploader-type')?.value || 'reader'),
       is_published: true, 
-      user_id: currentUser.id
+      // JIKA ADMIN YANG TAMBAH CERITA -> USER_ID DI-NULL-KAN
+      user_id: isAdmin ? null : currentUser.id
     }
 
     if (isAdmin && document.getElementById('book-buy-link')) {
@@ -1503,6 +1504,7 @@ function setupBookFormModal() {
 
     try {
       const booksArray = JSON.parse(jsonStr)
+      const isAdmin = currentUser?.profile?.role === 'admin'
 
       if (!Array.isArray(booksArray) || booksArray.length === 0) {
         throw new Error('Format harus berupa Array JSON [...] dan tidak boleh kosong.')
@@ -1527,7 +1529,8 @@ function setupBookFormModal() {
           read_link_2: b.read_link_2 || null,
           buy_link: b.buy_link || null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
-          user_id: currentUser?.id || null
+          // JIKA ADMIN IMPORT BULK -> USER_ID DI-NULL-KAN
+          user_id: isAdmin ? null : (currentUser?.id || null)
         }
       })
 
