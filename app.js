@@ -84,8 +84,7 @@ function setPillValue(groupContainerId, value) {
   if (targetRadio) {
     const pillLabel = targetRadio.closest('.privacy-pill')
     if (pillLabel) {
-      const groupPrefix = groupContainerId.replace('group-privacy-', '')
-      window.selectCustomPill(pillLabel, groupPrefix, value)
+      window.selectCustomPill(pillLabel, groupContainerId, value)
     }
   }
 }
@@ -132,21 +131,25 @@ function checkTabVisibility(visibilitySetting, isFollowing) {
 
 // HELPER CEK DUA ARAH BLOKIR USER
 async function checkBlockStatus(targetUserId) {
-  if (!currentUser) return { isBlockedByMe: false, isBlockingMe: false }
+  if (!currentUser || !targetUserId) return { isBlockedByMe: false, isBlockingMe: false }
 
-  const { data: myBlock } = await supabase.from('blocked_users')
-    .select('id')
-    .eq('blocker_id', currentUser.id)
-    .eq('blocked_id', targetUserId)
+  try {
+    const { data: myBlock } = await supabase.from('blocked_users')
+      .select('id')
+      .eq('blocker_id', currentUser.id)
+      .eq('blocked_id', targetUserId)
 
-  const { data: opponentBlock } = await supabase.from('blocked_users')
-    .select('id')
-    .eq('blocker_id', targetUserId)
-    .eq('blocked_id', currentUser.id)
+    const { data: opponentBlock } = await supabase.from('blocked_users')
+      .select('id')
+      .eq('blocker_id', targetUserId)
+      .eq('blocked_id', currentUser.id)
 
-  return {
-    isBlockedByMe: myBlock && myBlock.length > 0,
-    isBlockingMe: opponentBlock && opponentBlock.length > 0
+    return {
+      isBlockedByMe: myBlock && myBlock.length > 0,
+      isBlockingMe: opponentBlock && opponentBlock.length > 0
+    }
+  } catch (e) {
+    return { isBlockedByMe: false, isBlockingMe: false }
   }
 }
 
@@ -276,7 +279,6 @@ window.openPrivacySettingsModal = function() {
   const p = currentUser.profile
   const modal = document.getElementById('modal-privacy-settings')
 
-  setPillValue('group-privacy-bookmark', p?.bookmark_visibility || 'public')
   setPillValue('group-privacy-rec', p?.recommendation_visibility || 'public')
 
   modal?.classList.remove('hidden')
@@ -412,8 +414,8 @@ window.deleteBook = function(bookId) {
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
-    const { data: book } = await supabase.from('books').select('*').eq('id', bookId).single()
-    if (!book) return
+    const { data: book, error: fetchErr } = await supabase.from('books').select('*').eq('id', bookId).single()
+    if (fetchErr || !book) return window.showToast('Gagal memuat detail karya', 'error')
 
     if (book.user_id && currentUser) {
       const { isBlockedByMe, isBlockingMe } = await checkBlockStatus(book.user_id)
@@ -450,7 +452,7 @@ window.openBookDetail = async function(bookId) {
 
       uploaderHTML = `
         <span style="font-size:11px; color:#cbd5e1; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          Diunggah oleh <b onclick="openUserProfile('${uploaderProfile.id}')" style="color:#38bdf8; cursor:pointer;">@${sanitizeText(uploaderProfile.username)}</b>
+          Diunggah oleh <b onclick="window.openUserProfile('${uploaderProfile.id}')" style="color:#38bdf8; cursor:pointer;">@${sanitizeText(uploaderProfile.username)}</b>
           <span style="padding:2px 8px; font-size:10px; border-radius:9999px; font-weight:800; ${badgeStyle}">${badgeLabel}</span>
         </span>
       `
@@ -511,7 +513,7 @@ window.openBookDetail = async function(bookId) {
             <div id="book-menu-dropdown" class="hidden" 
                  style="position:absolute; right:0; top:34px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
               
-              <button onclick="shareBook('${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
+              <button onclick="window.shareBook('${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                       onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
                       onmouseout="this.style.background='transparent'">
@@ -519,7 +521,7 @@ window.openBookDetail = async function(bookId) {
               </button>
 
               ${(!isOwner && currentUser) ? `
-                <button onclick="openReportModal('book', '${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
+                <button onclick="window.openReportModal('book', '${book.id}'); document.getElementById('book-menu-dropdown').classList.add('hidden');" 
                         style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                         onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
                         onmouseout="this.style.background='transparent'">
@@ -562,11 +564,11 @@ window.openBookDetail = async function(bookId) {
 
         ${isOwner ? `
           <div style="display:grid; grid-template-columns:${isAdmin ? '1fr 1fr' : '1fr'}; gap:8px; padding-top:4px;">
-            <button onclick="openBookFormById('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(99,102,241,0.2); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); cursor:pointer;">
+            <button onclick="window.openBookFormById('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(99,102,241,0.2); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); cursor:pointer;">
               ✏️ Edit Cerita
             </button>
             ${isAdmin ? `
-              <button onclick="deleteBook('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); cursor:pointer;">
+              <button onclick="window.deleteBook('${book.id}')" style="padding:8px; border-radius:10px; font-size:11px; font-weight:700; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); cursor:pointer;">
                 🗑️ Hapus Cerita
               </button>
             ` : ''}
@@ -574,13 +576,13 @@ window.openBookDetail = async function(bookId) {
         ` : ''}
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding-top:8px;">
-          <button onclick="toggleBookmark('${book.id}', ${isBookmarked})" 
+          <button onclick="window.toggleBookmark('${book.id}', ${isBookmarked})" 
             style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isBookmarked ? '#f87171' : 'rgba(255,255,255,0.1)'}; background:${isBookmarked ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isBookmarked ? '#fca5a5' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
             <i class="bi bi-bookmark${isBookmarked ? '-check-fill' : ''}" style="${isBookmarked ? 'color:#f87171' : ''}"></i>
             ${isBookmarked ? 'Simpan' : 'Bookmark'}
           </button>
           
-          <button onclick="toggleRecommendation('${book.id}', ${isRecommended})" 
+          <button onclick="window.toggleRecommendation('${book.id}', ${isRecommended})" 
             style="padding:10px 4px; border-radius:12px; font-size:11px; font-weight:600; border:1px solid ${isRecommended ? '#fbbf24' : 'rgba(255,255,255,0.1)'}; background:${isRecommended ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)'}; color:${isRecommended ? '#fde047' : '#cbd5e1'}; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
             <i class="bi bi-star${isRecommended ? '-fill' : ''}" style="${isRecommended ? 'color:#fbbf24' : ''}"></i>
             ${isRecommended ? 'Suka' : 'Rekomendasi'}
@@ -631,7 +633,7 @@ window.openBookDetail = async function(bookId) {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 style="font-size:12px; font-weight:800; color:#c084fc;">💬 Komentar (${commentCount || 0})</h4>
             ${commentCount > 0 ? `
-              <button onclick="openAllCommentsModal('${book.id}')" style="background:transparent; color:#38bdf8; border:none; font-size:11px; font-weight:700; cursor:pointer;">
+              <button onclick="window.openAllCommentsModal('${book.id}')" style="background:transparent; color:#38bdf8; border:none; font-size:11px; font-weight:700; cursor:pointer;">
                 Lihat Semua (${commentCount}) »
               </button>
             ` : ''}
@@ -660,7 +662,7 @@ window.openBookDetail = async function(bookId) {
         const input = document.getElementById('quick-comment-input')
         const anonInput = document.getElementById('quick-comment-anonymous')
         if (!input || !input.value.trim()) return
-        await submitComment(book.id, input.value.trim(), null, anonInput?.checked || false)
+        await window.submitComment(book.id, input.value.trim(), null, anonInput?.checked || false)
       })
     }
     document.getElementById('modal-detail')?.classList.remove('hidden')
@@ -682,7 +684,7 @@ window.handleReplySubmit = async function(e, bookId, parentId) {
   const input = document.getElementById(`input-reply-form-${parentId}`)
   const anonInput = document.getElementById(`anon-reply-form-${parentId}`)
   if (!input || !input.value.trim()) return
-  await submitComment(bookId, input.value.trim(), parentId, anonInput?.checked || false)
+  await window.submitComment(bookId, input.value.trim(), parentId, anonInput?.checked || false)
 }
 
 function renderCommentItemHTML(c, bookId, replies = []) {
@@ -694,7 +696,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
   const isAnon = c.is_anonymous
   const displayName = isAnon ? '👤 Anonim' : `@${sanitizeText(c.user?.username || 'user')}`
   const avatarUrl = isAnon ? 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous' : (sanitizeText(c.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + c.user_id)
-  const profileClick = isAnon ? '' : `onclick="openUserProfile('${c.user_id}')"`
+  const profileClick = isAnon ? '' : `onclick="window.openUserProfile('${c.user_id}')"`
 
   return `
     <div style="background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:10px; border:1px solid rgba(168,85,247,0.15); margin-bottom:6px;">
@@ -706,12 +708,12 @@ function renderCommentItemHTML(c, bookId, replies = []) {
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-size:9px; color:#94a3b8;">${new Date(c.created_at).toLocaleDateString('id-ID')}</span>
           ${canDelete ? `
-            <button onclick="deleteComment('${c.id}', '${bookId}')" title="Hapus Komentar" style="background:transparent; border:none; color:#f87171; font-size:11px; cursor:pointer; padding:2px;">
+            <button onclick="window.deleteComment('${c.id}', '${bookId}')" title="Hapus Komentar" style="background:transparent; border:none; color:#f87171; font-size:11px; cursor:pointer; padding:2px;">
               🗑️
             </button>
           ` : ''}
           ${!isMine ? `
-            <button onclick="openReportModal('comment', '${c.id}', '${bookId}')" title="Laporkan Komentar" style="background:transparent; border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:2px;">
+            <button onclick="window.openReportModal('comment', '${c.id}', '${bookId}')" title="Laporkan Komentar" style="background:transparent; border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:2px;">
               <i class="bi bi-three-dots-vertical"></i>
             </button>
           ` : ''}
@@ -744,7 +746,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
             const rAnon = r.is_anonymous
             const rName = rAnon ? '👤 Anonim' : `@${sanitizeText(r.user?.username || 'user')}`
             const rAvatar = rAnon ? 'https://api.dicebear.com/7.x/bottts/svg?seed=anonymous' : (sanitizeText(r.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + r.user_id)
-            const rClick = rAnon ? '' : `onclick="openUserProfile('${r.user_id}')"`
+            const rClick = rAnon ? '' : `onclick="window.openUserProfile('${r.user_id}')"`
 
             return `
               <div style="background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:8px; border:1px solid rgba(168,85,247,0.1);">
@@ -756,7 +758,7 @@ function renderCommentItemHTML(c, bookId, replies = []) {
                   <div style="display:flex; align-items:center; gap:4px;">
                     <span style="font-size:8px; color:#94a3b8;">${new Date(r.created_at).toLocaleDateString('id-ID')}</span>
                     ${(currentUser && (currentUser.id === r.user_id || isAdmin)) ? `
-                      <button onclick="deleteComment('${r.id}', '${bookId}')" title="Hapus Balasan" style="background:transparent; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:2px;">
+                      <button onclick="window.deleteComment('${r.id}', '${bookId}')" title="Hapus Balasan" style="background:transparent; border:none; color:#f87171; font-size:10px; cursor:pointer; padding:2px;">
                         🗑️
                       </button>
                     ` : ''}
@@ -844,10 +846,15 @@ window.deleteComment = function(commentId, bookId) {
 window.openReportModal = function(targetType, targetId, contextId = null) {
   if (!currentUser) return window.showToast('Silakan login terlebih dahulu!', 'error')
 
-  document.getElementById('report-target-type').value = targetType
-  document.getElementById('report-target-id').value = targetId
-  document.getElementById('report-context-id').value = contextId || ''
-  document.getElementById('report-reason-input').value = ''
+  const inputType = document.getElementById('report-target-type')
+  const inputId = document.getElementById('report-target-id')
+  const inputContext = document.getElementById('report-context-id')
+  const inputReason = document.getElementById('report-reason-input') || document.getElementById('report-reason')
+
+  if (inputType) inputType.value = targetType
+  if (inputId) inputId.value = targetId
+  if (inputContext) inputContext.value = contextId || ''
+  if (inputReason) inputReason.value = ''
 
   const modalTitle = document.getElementById('report-modal-title')
   if (modalTitle) {
@@ -872,31 +879,34 @@ function setupReportModal() {
   btnClose?.addEventListener('click', closeModal)
   btnCancel?.addEventListener('click', closeModal)
 
-  btnSubmit?.addEventListener('click', async () => {
-    const targetType = document.getElementById('report-target-type').value
-    const targetId = document.getElementById('report-target-id').value
-    const reason = document.getElementById('report-reason-input').value.trim()
+  if (btnSubmit) {
+    btnSubmit.onclick = async () => {
+      const targetType = document.getElementById('report-target-type')?.value
+      const targetId = document.getElementById('report-target-id')?.value
+      const inputReason = document.getElementById('report-reason-input') || document.getElementById('report-reason')
+      const reason = inputReason ? inputReason.value.trim() : ''
 
-    if (!reason) return window.showToast('Alasan pelaporan tidak boleh kosong!', 'error')
+      if (!reason) return window.showToast('Alasan pelaporan tidak boleh kosong!', 'error')
 
-    try {
-      const payload = {
-        reporter_id: currentUser.id,
-        reason: reason,
-        comment_id: targetType === 'comment' ? targetId : null,
-        book_id: targetType === 'book' ? targetId : null,
-        user_id: targetType === 'user' ? targetId : null
+      try {
+        const payload = {
+          reporter_id: currentUser.id,
+          reason: reason,
+          comment_id: targetType === 'comment' ? targetId : null,
+          book_id: targetType === 'book' ? targetId : null,
+          user_id: targetType === 'user' ? targetId : null
+        }
+
+        const { error } = await supabase.from('comment_reports').insert(payload)
+        if (error) throw error
+
+        window.showToast('Laporan berhasil dikirim ke Admin! 🛡️')
+        closeModal()
+      } catch (err) {
+        window.showToast('Gagal mengirim laporan: ' + err.message, 'error')
       }
-
-      const { error } = await supabase.from('comment_reports').insert(payload)
-      if (error) throw error
-
-      window.showToast('Laporan berhasil dikirim ke Admin! 🛡️')
-      closeModal()
-    } catch (err) {
-      window.showToast('Gagal mengirim laporan: ' + err.message, 'error')
     }
-  })
+  }
 }
 
 window.openAllCommentsModal = async function(bookId) {
@@ -940,7 +950,7 @@ window.openAllCommentsModal = async function(bookId) {
         const input = document.getElementById('full-comment-input')
         const anonInput = document.getElementById('full-comment-anonymous')
         if (!input || !input.value.trim()) return
-        await submitComment(bookId, input.value.trim(), null, anonInput?.checked || false)
+        await window.submitComment(bookId, input.value.trim(), null, anonInput?.checked || false)
         input.value = ''
         window.openAllCommentsModal(bookId)
       })
@@ -1036,7 +1046,7 @@ window.openUserProfile = async function(userId) {
 
             <div id="user-menu-dropdown" class="hidden" 
                  style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:150px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
-              <button onclick="toggleBlockUser('${profile.id}', true); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+              <button onclick="window.toggleBlockUser('${profile.id}', true); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#38bdf8; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;">
                 <i class="bi bi-unlock-fill"></i> Buka Blokir
               </button>
@@ -1055,7 +1065,7 @@ window.openUserProfile = async function(userId) {
 
             <div style="margin-top:20px; padding:16px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:14px; text-align:center;">
               <p style="font-size:11px; color:#fca5a5; font-weight:700;">🚫 Kamu telah memblokir pengguna ini.</p>
-              <button onclick="toggleBlockUser('${profile.id}', true)" style="margin-top:10px; padding:6px 16px; background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); border-radius:9999px; font-size:10px; font-weight:700; cursor:pointer;">
+              <button onclick="window.toggleBlockUser('${profile.id}', true)" style="margin-top:10px; padding:6px 16px; background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); border-radius:9999px; font-size:10px; font-weight:700; cursor:pointer;">
                 Buka Blokir
               </button>
             </div>
@@ -1116,7 +1126,7 @@ window.openUserProfile = async function(userId) {
 
     container.innerHTML = `
       <div class="profile-card-hero" style="position:relative;">
-        <div style="position:absolute; top:12px; right:12px; z-index:10;">
+        <div style="position:absolute; top:12px; right:12px; z-index:100;">
           <button onclick="document.getElementById('user-menu-dropdown').classList.toggle('hidden')" 
                   title="Opsi" 
                   style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
@@ -1124,9 +1134,9 @@ window.openUserProfile = async function(userId) {
           </button>
 
           <div id="user-menu-dropdown" class="hidden" 
-               style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+               style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:140px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:101;">
             
-            <button onclick="shareProfile('${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+            <button onclick="window.shareProfile('${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                     style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                     onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
                     onmouseout="this.style.background='transparent'">
@@ -1134,13 +1144,13 @@ window.openUserProfile = async function(userId) {
             </button>
 
             ${currentUser ? `
-              <button onclick="toggleBlockUser('${profile.id}', false); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+              <button onclick="window.toggleBlockUser('${profile.id}', false); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                       onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
                       onmouseout="this.style.background='transparent'">
                 <i class="bi bi-slash-circle-fill"></i> Blokir User
               </button>
-              <button onclick="openReportModal('user', '${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
+              <button onclick="window.openReportModal('user', '${profile.id}'); document.getElementById('user-menu-dropdown').classList.add('hidden');" 
                       style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                       onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
                       onmouseout="this.style.background='transparent'">
@@ -1161,7 +1171,7 @@ window.openUserProfile = async function(userId) {
           <p style="font-size:12px; color:#38bdf8; font-weight:600;">@${sanitizeText(profile.username) || 'user'}</p>
           <p style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.4;">${sanitizeText(profile.bio) || 'Belum ada bio.'}</p>
 
-          <button onclick="toggleFollow('${profile.id}', ${isFollowing})" 
+          <button onclick="window.toggleFollow('${profile.id}', ${isFollowing})" 
             style="margin:12px auto 0; padding:8px 20px; border-radius:9999px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; border:none; ${followBtnStyle}">
             <i class="bi ${followBtnIcon}"></i>
             ${followBtnText}
@@ -1193,7 +1203,7 @@ window.openUserProfile = async function(userId) {
         ${!canSeeRec ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">🔒 Daftar rekomendasi pengguna ini dikunci.</p>` : (recBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">User ini belum merekomendasikan cerita publik apa pun.</p>` : '')}
         <div class="book-grid-vertical">
           ${recBooks.map(book => `
-            <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+            <div onclick="window.openBookDetail('${book.id}')" class="book-card-vertical">
               <div class="uncropped-cover-container" style="height:150px;">
                 <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
                 <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
@@ -1212,7 +1222,7 @@ window.openUserProfile = async function(userId) {
         ${addedBooks.length === 0 ? `<p style="font-size:11px; color:#94a3b8; text-align:center; padding:16px 0;">Tidak ada cerita publik yang dapat ditampilkan.</p>` : ''}
         <div class="book-grid-vertical">
           ${addedBooks.map(book => `
-            <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+            <div onclick="window.openBookDetail('${book.id}')" class="book-card-vertical">
               <div class="uncropped-cover-container" style="height:150px;">
                 <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
                 <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
@@ -1316,7 +1326,7 @@ window.openSocialModal = async function(type) {
 
   if (container) {
     container.innerHTML = list.map(item => `
-      <div class="user-item" onclick="openUserProfile('${item.user?.id}')" style="cursor:pointer; padding:8px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); margin-bottom:6px;">
+      <div class="user-item" onclick="window.openUserProfile('${item.user?.id}')" style="cursor:pointer; padding:8px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); margin-bottom:6px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <img src="${sanitizeText(item.user?.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + item.user?.id}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
           <div>
@@ -1374,7 +1384,7 @@ function renderBookHorizontal(containerId, books) {
   }
 
   container.innerHTML = books.map(book => `
-    <div onclick="openBookDetail('${book.id}')" class="book-card-horizontal">
+    <div onclick="window.openBookDetail('${book.id}')" class="book-card-horizontal">
       <div class="uncropped-cover-container">
         <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
         <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
@@ -1400,7 +1410,7 @@ function renderBookVertical(containerId, books) {
   }
 
   container.innerHTML = books.map(book => `
-    <div onclick="openBookDetail('${book.id}')" class="book-card-vertical">
+    <div onclick="window.openBookDetail('${book.id}')" class="book-card-vertical">
       <div class="uncropped-cover-container" style="height:170px;">
         <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-bg">
         <img src="${sanitizeText(book.cover_url) || 'https://via.placeholder.com/150'}" class="uncropped-cover-img" alt="${sanitizeText(book.title)}">
@@ -1625,7 +1635,7 @@ async function loadRecommendedUsersHome() {
   }
 
   container.innerHTML = filteredUsers.map(user => `
-    <div onclick="openUserProfile('${user.id}')" style="min-width:115px; max-width:115px; flex-shrink:0; background:rgba(23, 15, 48, 0.6); border:1px solid rgba(168, 85, 247, 0.25); border-radius:16px; padding:12px 8px; text-align:center; cursor:pointer;">
+    <div onclick="window.openUserProfile('${user.id}')" style="min-width:115px; max-width:115px; flex-shrink:0; background:rgba(23, 15, 48, 0.6); border:1px solid rgba(168, 85, 247, 0.25); border-radius:16px; padding:12px 8px; text-align:center; cursor:pointer;">
       <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:46px; height:42px; border-radius:50%; object-fit:cover; margin:0 auto 6px; border:2px solid #a855f7;">
       <h4 style="font-size:11px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(user.full_name) || 'User'}</h4>
       <p style="font-size:9px; color:#38bdf8; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">@${sanitizeText(user.username) || 'user'}</p>
@@ -1663,7 +1673,6 @@ function setupBookFormModal() {
     formBook?.classList.add('hidden')
   })
 
-  // TEMPLATE UTUH & AKURAT (USER READER/WRITER)
   btnFillTemplate?.addEventListener('click', () => {
     const template = [
       {
@@ -1818,7 +1827,6 @@ function setupBookFormModal() {
           synopsis: b.synopsis || null,
           read_link: b.read_link || null,
           read_link_2: b.read_link_2 || null,
-          // HANYA ADMIN YANG DAPAT INPUT BUY_LINK KARTU
           buy_link: isAdmin ? (b.buy_link || null) : null,
           preview_images: Array.isArray(b.preview_images) ? b.preview_images : [],
           parts: Array.isArray(b.parts) ? b.parts : [],
@@ -1886,7 +1894,7 @@ async function loadExploreBooks() {
           <h5 style="font-size:12px; font-weight:800; color:#f8fafc;">Gak nemu cerita favoritmu?</h5>
           <p style="font-size:10px; color:#cbd5e1;">Tambah ke semesta FiksiVerse biar dibaca yang lain!</p>
         </div>
-        <button onclick="openBookFormById(null)" style="padding:7px 12px; background:linear-gradient(135deg,#a855f7,#38bdf8); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0;">
+        <button onclick="window.openBookFormById(null)" style="padding:7px 12px; background:linear-gradient(135deg,#a855f7,#38bdf8); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0;">
           + Tambah Cerita
         </button>
       </div>
@@ -1931,7 +1939,7 @@ async function loadExploreUsers() {
   }
 
   container.innerHTML = filteredUsers.map(user => `
-    <div onclick="openUserProfile('${user.id}')" class="user-item" style="cursor:pointer; padding:12px;">
+    <div onclick="window.openUserProfile('${user.id}')" class="user-item" style="cursor:pointer; padding:12px;">
       <div style="display:flex; align-items:center; gap:12px;">
         <img src="${sanitizeText(user.avatar_url) || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.id}" style="width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid #a855f7;">
         <div>
@@ -2000,7 +2008,7 @@ function setupNavigation() {
   })
 }
 
-// PROFIL SAYA (TITIK TIGA BERISI PRIVASI & DIBLOKIR)
+// PROFIL SAYA
 async function loadProfile() {
   const tabProfile = document.getElementById('tab-profile')
   if (!tabProfile) return
@@ -2035,7 +2043,7 @@ async function loadProfile() {
   tabProfile.innerHTML = `
     <div class="profile-card-hero" style="position:relative;">
       <!-- MENU DROPDOWN TITIK TIGA -->
-      <div style="position:absolute; top:12px; right:12px; z-index:10;">
+      <div style="position:absolute; top:12px; right:12px; z-index:100;">
         <button onclick="document.getElementById('my-profile-dropdown').classList.toggle('hidden')" 
                 title="Opsi Profil" 
                 style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2); color:#cbd5e1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">
@@ -2043,23 +2051,23 @@ async function loadProfile() {
         </button>
 
         <div id="my-profile-dropdown" class="hidden" 
-             style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:170px; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+             style="position:absolute; right:0; top:36px; background:#1e1b4b; border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:6px; width:170px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:101;">
           
-          <button onclick="shareProfile('${currentUser.id}'); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+          <button onclick="window.shareProfile('${currentUser.id}'); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
                   style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                   onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
                   onmouseout="this.style.background='transparent'">
             <i class="bi bi-share-fill" style="color:#38bdf8;"></i> Bagikan Profil
           </button>
 
-          <button onclick="openPrivacySettingsModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+          <button onclick="window.openPrivacySettingsModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
                   style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                   onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
                   onmouseout="this.style.background='transparent'">
             <i class="bi bi-lock-fill" style="color:#c084fc;"></i> Privasi Tab
           </button>
 
-          <button onclick="openBlockedUsersModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
+          <button onclick="window.openBlockedUsersModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
                   style="width:100%; text-align:left; background:transparent; border:none; color:#f87171; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                   onmouseover="this.style.background='rgba(239,68,68,0.2)'" 
                   onmouseout="this.style.background='transparent'">
@@ -2083,29 +2091,29 @@ async function loadProfile() {
         </p>
 
         <div style="display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap;">
-          <button onclick="openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+          <button onclick="window.openEditProfileModal()" style="padding:6px 14px; background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-pencil-square"></i> Edit Profil
           </button>
 
-          <button onclick="openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+          <button onclick="window.openBookFormById(null)" style="padding:6px 14px; background:linear-gradient(135deg,#a855f7,#6366f1); color:white; border:none; border-radius:9999px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
             <i class="bi bi-plus-circle"></i> Tambah Cerita / AU
           </button>
         </div>
 
         <div class="profile-stats-grid">
-          <div class="stat-card" onclick="switchTab('tab-bookmark')">
+          <div class="stat-card" onclick="window.switchTab('tab-bookmark')">
             <span class="stat-value">${bookmarkCount || 0}</span>
             <span class="stat-label">Bookmark</span>
           </div>
-          <div class="stat-card" onclick="switchTab('tab-recommended')">
+          <div class="stat-card" onclick="window.switchTab('tab-recommended')">
             <span class="stat-value">${recCount || 0}</span>
             <span class="stat-label">Rekomendasi</span>
           </div>
-          <div class="stat-card" onclick="openSocialModal('followers')">
+          <div class="stat-card" onclick="window.openSocialModal('followers')">
             <span class="stat-value">${followersCount || 0}</span>
             <span class="stat-label">Pengikut</span>
           </div>
-          <div class="stat-card" onclick="openSocialModal('following')">
+          <div class="stat-card" onclick="window.openSocialModal('following')">
             <span class="stat-value">${followingCount || 0}</span>
             <span class="stat-label">Mengikuti</span>
           </div>
@@ -2130,7 +2138,7 @@ async function loadProfile() {
             return `
               <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
-                  <div onclick="openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
+                  <div onclick="window.openBookDetail('${b.id}')" style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden; cursor:pointer;">
                     <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:34px; height:46px; object-fit:cover; border-radius:6px; flex-shrink:0;">
                     <div style="overflow:hidden;">
                       <h5 style="font-size:12px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</h5>
@@ -2138,10 +2146,10 @@ async function loadProfile() {
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
-                    <button onclick="openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    <button onclick="window.openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                       ✏️ Edit
                     </button>
-                    <button onclick="deleteBook('${b.id}')" title="Hapus Cerita" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    <button onclick="window.deleteBook('${b.id}')" title="Hapus Cerita" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                       🗑️
                     </button>
                   </div>
@@ -2196,7 +2204,7 @@ async function loadProfile() {
   `
 
   if (isAdmin) {
-    document.getElementById('btn-admin-add')?.addEventListener('click', () => openBookFormById(null))
+    document.getElementById('btn-admin-add')?.addEventListener('click', () => window.openBookFormById(null))
     document.getElementById('btn-admin-banner')?.addEventListener('click', () => {
       document.getElementById('modal-banner-form')?.classList.remove('hidden')
       pushHistoryState('modal', 'modal-banner-form')
@@ -2213,13 +2221,12 @@ async function loadProfile() {
   document.getElementById('btn-logout')?.addEventListener('click', logout)
 }
 
-// SIMPAN PRIVASI TAB
+// SIMPAN PRIVASI TAB REKOMENDASI
 document.getElementById('form-privacy-settings')?.addEventListener('submit', async (e) => {
   e.preventDefault()
   if (!currentUser) return
 
   const updates = {
-    bookmark_visibility: getPillValue('group-privacy-bookmark'),
     recommendation_visibility: getPillValue('group-privacy-rec')
   }
 
@@ -2227,7 +2234,7 @@ document.getElementById('form-privacy-settings')?.addEventListener('submit', asy
     const { error } = await supabase.from('profiles').update(updates).eq('id', currentUser.id)
     if (error) throw error
 
-    window.showToast('Pengaturan privasi diperbarui!')
+    window.showToast('Privasi Rekomendasi diperbarui!')
     document.getElementById('modal-privacy-settings')?.classList.add('hidden')
     currentUser.profile = { ...currentUser.profile, ...updates }
   } catch (err) {
@@ -2284,7 +2291,7 @@ function setupEditProfileModal() {
   })
 }
 
-// BUKA MODAL DAFTAR USER DIBLOKIR DARI TITIK TIGA
+// BUKA MODAL DAFTAR USER DIBLOKIR
 window.openBlockedUsersModal = async function() {
   if (!currentUser) return
   
@@ -2315,7 +2322,7 @@ window.openBlockedUsersModal = async function() {
             <p style="font-size:10px; color:#38bdf8;">@${sanitizeText(item.blocked_user?.username) || 'user'}</p>
           </div>
         </div>
-        <button onclick="unblockFromList('${item.blocked_id}')" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer;">
+        <button onclick="window.unblockFromList('${item.blocked_id}')" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer;">
           🔓 Buka Blokir
         </button>
       </div>
@@ -2373,7 +2380,7 @@ async function loadAdminReportsList() {
     if (isComment) {
       badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(168,85,247,0.2); color:#c084fc;">💬 KOMENTAR</span>`
       tkpHTML = `
-        <div onclick="${targetBookId ? `openBookDetail('${targetBookId}')` : ''}" 
+        <div onclick="${targetBookId ? `window.openBookDetail('${targetBookId}')` : ''}" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(168,85,247,0.2);">
           <b style="color:#a855f7;">@${sanitizeText(r.comment?.user?.username || 'user')}:</b> "${sanitizeText(r.comment?.content || '[Telah dihapus]')}"
           <div style="font-size:9px; color:#38bdf8; margin-top:4px; display:flex; align-items:center; justify-content:space-between;">
@@ -2385,7 +2392,7 @@ async function loadAdminReportsList() {
     } else if (isBook) {
       badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(56,189,248,0.2); color:#38bdf8;">📖 CERITA/KARYA</span>`
       tkpHTML = `
-        <div onclick="openBookDetail('${r.book_id}')" 
+        <div onclick="window.openBookDetail('${r.book_id}')" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(56,189,248,0.3); display:flex; align-items:center; justify-content:space-between;">
           <span>📖 Judul: <b style="color:#f8fafc;">${sanitizeText(r.book?.title || 'Detail Cerita')}</b></span>
           <span style="color:#38bdf8; font-size:10px; font-weight:700;">Cek Karya 🔍</span>
@@ -2394,7 +2401,7 @@ async function loadAdminReportsList() {
     } else if (isUser) {
       badgeHTML = `<span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(251,191,36,0.2); color:#fbbf24;">👤 AKUN USER</span>`
       tkpHTML = `
-        <div onclick="openUserProfile('${r.user_id}')" 
+        <div onclick="window.openUserProfile('${r.user_id}')" 
              style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:6px; font-size:11px; color:#cbd5e1; cursor:pointer; border:1px solid rgba(251,191,36,0.3); display:flex; align-items:center; justify-content:space-between;">
           <span>👤 User: <b style="color:#fbbf24;">@${sanitizeText(r.reported_user?.username || 'user')}</b></span>
           <span style="color:#fbbf24; font-size:10px; font-weight:700;">Cek Profil 🔍</span>
@@ -2418,24 +2425,24 @@ async function loadAdminReportsList() {
         ${tkpHTML}
 
         <div style="display:flex; gap:4px; margin-top:8px; justify-content:flex-end; flex-wrap:wrap;">
-          <button onclick="dismissReport('${r.id}')" style="padding:4px 8px; background:rgba(255,255,255,0.1); color:#cbd5e1; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
+          <button onclick="window.dismissReport('${r.id}')" style="padding:4px 8px; background:rgba(255,255,255,0.1); color:#cbd5e1; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">
             Abaikan
           </button>
 
           ${isComment ? `
-            <button onclick="deleteReportedComment('${r.comment_id}', '${r.id}')" style="padding:4px 8px; background:#ef4444; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+            <button onclick="window.deleteReportedComment('${r.comment_id}', '${r.id}')" style="padding:4px 8px; background:#ef4444; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Hapus Komentar
             </button>
           ` : ''}
 
           ${targetBookId ? `
-            <button onclick="adminDeleteBook('${targetBookId}', '${r.id}')" style="padding:4px 8px; background:#dc2626; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+            <button onclick="window.adminDeleteBook('${targetBookId}', '${r.id}')" style="padding:4px 8px; background:#dc2626; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Hapus Cerita
             </button>
           ` : ''}
 
           ${targetUserId ? `
-            <button onclick="adminBlockUser('${targetUserId}', '${r.id}')" style="padding:4px 8px; background:#991b1b; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
+            <button onclick="window.adminBlockUser('${targetUserId}', '${r.id}')" style="padding:4px 8px; background:#991b1b; color:white; border:none; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">
               Blokir User
             </button>
           ` : ''}
@@ -2516,8 +2523,8 @@ async function renderAdminBannerList() {
         <span style="font-size:12px; font-weight:600; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sanitizeText(b.title)}</span>
       </div>
       <div style="display:flex; gap:6px; margin-left:8px;">
-        <button onclick="editBanner('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Edit</button>
-        <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Hapus</button>
+        <button onclick="window.editBanner('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Edit</button>
+        <button onclick="window.deleteBanner('${b.id}')" style="background:#fee2e2; color:#dc2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Hapus</button>
       </div>
     </div>
   `).join('')
@@ -2643,7 +2650,7 @@ async function loadAdminBooksList() {
       <h5 style="font-size:12px; font-weight:700; color:#f8fafc; margin-bottom:6px;">📚 Semua Cerita Terbit (${books ? books.length : 0})</h5>
       <div class="space-y-2">
         ${books ? books.map(b => `
-          <div onclick="if(event.target.tagName !== 'BUTTON') openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
+          <div onclick="if(event.target.tagName !== 'BUTTON') window.openBookDetail('${b.id}')" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.03); padding:8px 10px; border-radius:12px; border:1px solid rgba(168,85,247,0.15);">
             <div style="display:flex; align-items:center; gap:10px; flex:1; overflow:hidden;">
               <img src="${sanitizeText(b.cover_url) || 'https://via.placeholder.com/50'}" style="width:36px; height:50px; object-fit:cover; border-radius:6px; flex-shrink:0;">
               <div style="overflow:hidden;">
@@ -2652,10 +2659,10 @@ async function loadAdminBooksList() {
               </div>
             </div>
             <div style="display:flex; gap:4px; margin-left:8px;">
-              <button onclick="openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+              <button onclick="window.openBookFormById('${b.id}')" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                 ✏️
               </button>
-              <button onclick="deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+              <button onclick="window.deleteBook('${b.id}')" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
                 🗑️
               </button>
             </div>
@@ -2786,8 +2793,8 @@ async function loadNotifications() {
       }
 
       const clickAction = n.book_id 
-        ? `onclick="openBookDetail('${n.book_id}')"` 
-        : (n.actor_id ? `onclick="openUserProfile('${n.actor_id}')"` : '')
+        ? `onclick="window.openBookDetail('${n.book_id}')"` 
+        : (n.actor_id ? `onclick="window.openUserProfile('${n.actor_id}')"` : '')
 
       return `
         <div class="notif-item ${!n.is_read ? 'unread' : ''}" ${clickAction} style="cursor:pointer;">

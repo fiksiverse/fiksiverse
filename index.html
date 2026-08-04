@@ -214,63 +214,18 @@
     </div>
   </div>
 
-  <!-- MODAL PENGATURAN PRIVASI TAB -->
+  <!-- MODAL PENGATURAN PRIVASI TAB REKOMENDASI -->
   <div id="modal-privacy-settings" class="modal-overlay hidden">
-    <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
+    <div class="modal-box space-y-4">
       <div class="modal-header">
-        <span class="modal-title" style="color:#c084fc;">🔒 Privasi Profil & Koleksi</span>
+        <span class="modal-title" style="color:#c084fc;">🔒 Privasi Tab Rekomendasi</span>
         <button id="close-modal-privacy-settings" class="modal-close" onclick="document.getElementById('modal-privacy-settings').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
       </div>
 
       <form id="form-privacy-settings" class="space-y-4">
         <div>
-          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
-            ❤️ Hak Akses Tab Bookmark
-          </label>
-          <div class="custom-privacy-options" id="group-privacy-bookmark">
-            <label class="privacy-pill active" onclick="selectCustomPill(this, 'bm', 'public')">
-              <input type="radio" name="bm_vis" value="public" checked>
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Publik</div>
-                  <div class="privacy-pill-desc">Dapat dilihat oleh semua pengguna</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'bm', 'followers')">
-              <input type="radio" name="bm_vis" value="followers">
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
-                  <div class="privacy-pill-desc">Hanya akun yang mengikuti kamu</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'bm', 'private')">
-              <input type="radio" name="bm_vis" value="private">
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Hanya Saya</div>
-                  <div class="privacy-pill-desc">Disembunyikan dari semua pengguna</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-          </div>
-        </div>
-
-        <hr style="border:none; border-top:1px solid rgba(168,85,247,0.2);">
-
-        <div>
-          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
-            ⭐ Hak Akses Tab Rekomendasi
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:6px;">
+            ⭐ Siapa yang dapat melihat Tab Rekomendasi kamu?
           </label>
           <div class="custom-privacy-options" id="group-privacy-rec">
             <label class="privacy-pill active" onclick="selectCustomPill(this, 'rec', 'public')">
@@ -327,7 +282,7 @@
     </div>
   </div>
 
-  <!-- MODAL FORM TERPADU UNTUK BUKU/AU (TANPA DROPDOWN PUTIH BAWAAN) -->
+  <!-- MODAL FORM TERPADU UNTUK BUKU/AU -->
   <div id="modal-book-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
@@ -587,6 +542,17 @@
     </div>
   </div>
 
+  <!-- MODAL DETAIL BUKU / AU -->
+  <div id="modal-detail" class="modal-overlay hidden">
+    <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
+      <div class="modal-header">
+        <span class="modal-title">📖 Detail Cerita / AU</span>
+        <button id="close-modal-detail" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="detail-content" class="space-y-4"></div>
+    </div>
+  </div>
+
   <!-- MODAL BANNER -->
   <div id="modal-banner-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
@@ -706,6 +672,32 @@
         <div class="glass-card" style="padding: 12px;">
           <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🔗 Bagaimana cara membagikan link buku?</h4>
           <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Buka detail cerita mana saja, lalu klik tombol <b>"Bagikan"</b>. Link akan otomatis tersalin.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LAPORAN KONTEN / USER / KOMENTAR -->
+  <div id="modal-report" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span id="report-modal-title" class="modal-title">Laporkan Konten</span>
+        <button id="close-modal-report" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <input type="hidden" id="report-target-type">
+        <input type="hidden" id="report-target-id">
+        <input type="hidden" id="report-context-id">
+
+        <div class="form-group">
+          <label>Alasan Pelaporan</label>
+          <textarea id="report-reason-input" rows="3" placeholder="Tulis alasan pelaporan..." class="form-input" style="resize:none;"></textarea>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" id="btn-cancel-report" class="btn-full" style="background:rgba(255,255,255,0.1); color:#cbd5e1;">Batal</button>
+          <button type="button" id="btn-submit-report" class="btn-full btn-galaxy-primary" style="background:#ef4444; color:white;">Kirim Laporan</button>
         </div>
       </div>
     </div>
