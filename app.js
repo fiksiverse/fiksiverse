@@ -78,7 +78,6 @@ window.selectCustomPill = function(element, groupPrefix, value) {
   const targetRadio = element.querySelector('input[type="radio"]')
   if (targetRadio) targetRadio.checked = true
 
-  // Jika memilih 'followers_except', buka modal exclude
   if (value === 'followers_except') {
     activeExcludeTarget = groupPrefix
     window.openExcludeModal()
@@ -109,7 +108,7 @@ function getPillValue(groupContainerId) {
 async function canUserAccessBook(book) {
   if (!book) return false
   if (book.is_published === false) {
-    if (currentUser?.profile?.role === 'admin') return true
+    if (currentUser?.profile?.role === 'admin' || (currentUser && currentUser.id === book.user_id)) return true
     return false
   }
   const visibility = book.visibility || 'public'
@@ -327,7 +326,6 @@ window.openBookPrivacyModal = function() {
   document.getElementById('modal-book-privacy-settings')?.classList.remove('hidden')
 }
 
-// BUKA MODAL EDIT PRIVASI SPESIFIK CERITA (DARI DAFTAR KARYA SAYA)
 window.openSingleBookPrivacyModal = async function(bookId) {
   if (!currentUser) return
   try {
@@ -344,7 +342,6 @@ window.openSingleBookPrivacyModal = async function(bookId) {
   }
 }
 
-// BUKA MODAL EXCLUDE PENGIKUT
 window.openExcludeModal = async function() {
   if (!currentUser) return
   const modal = document.getElementById('modal-exclude-followers')
@@ -517,13 +514,17 @@ window.deleteBook = function(bookId) {
   })
 }
 
+// Fitur Buka Detail Buku (Dilengkapi tampilan Alasan Penahanan yang PASTI muncul)
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
     const { data: book, error: fetchErr } = await supabase.from('books').select('*').eq('id', bookId).single()
     if (fetchErr || !book) return window.showToast('Gagal memuat detail karya', 'error')
 
-    if (book.is_published === false && currentUser?.profile?.role !== 'admin') {
+    const isOwner = currentUser && currentUser.id === book.user_id
+    const isAdmin = currentUser?.profile?.role === 'admin'
+
+    if (book.is_published === false && !isAdmin && !isOwner) {
       return window.showToast('🔒 Cerita ini sedang ditahan (Pending) oleh Admin.', 'error')
     }
 
@@ -585,7 +586,6 @@ window.openBookDetail = async function(bookId) {
       .eq('book_id', bookId)
       .order('created_at', { ascending: true })
 
-    const isOwner = currentUser && (currentUser.id === book.user_id || currentUser.profile?.role === 'admin')
     const parts = book.parts || []
     const previews = book.preview_images || []
 
@@ -608,12 +608,17 @@ window.openBookDetail = async function(bookId) {
       visibilityBadge = `<span style="padding:2px 8px; background:rgba(56,189,248,0.25); color:#7dd3fc; font-size:10px; border-radius:9999px; font-weight:700;">👥 Hanya Pengikut</span>`
     }
 
+    // Alasan Penahanan yang dipastikan tampil
     let pendingNoticeHTML = ''
     if (book.is_published === false) {
       pendingNoticeHTML = `
-        <div style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); padding:10px; border-radius:12px; margin-bottom:12px;">
-          <h5 style="font-size:11px; font-weight:800; color:#f87171;">⚠️ Cerita Ditahan (Pending)</h5>
-          <p style="font-size:10px; color:#fca5a5; margin-top:2px;"><b>Alasan:</b> ${sanitizeText(book.pending_reason) || 'Pelanggaran ketentuan konten.'}</p>
+        <div style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.5); padding:12px; border-radius:14px; margin-bottom:14px;">
+          <h5 style="font-size:12px; font-weight:800; color:#f87171; display:flex; align-items:center; gap:6px;">
+            🛑 Cerita Ini Sedang Ditahan (Pending)
+          </h5>
+          <p style="font-size:11px; color:#fca5a5; margin-top:4px; line-height:1.4;">
+            <b>Alasan Penahanan:</b> ${sanitizeText(book.pending_reason) || 'Mengandung unsur pelanggaran ketentuan konten.'}
+          </p>
         </div>
       `
     }
@@ -2148,7 +2153,7 @@ function setupNavigation() {
   })
 }
 
-// Profil Saya (Daftar Karya Saya dengan tombol Tambah Privasi Cepat)
+// Profil Saya
 async function loadProfile() {
   const tabProfile = document.getElementById('tab-profile')
   if (!tabProfile) return
@@ -2267,7 +2272,7 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- Tampilan Daftar Karya Saya Berbaris + Tombol Edit Privasi Cerita Cepat -->
+    <!-- Tampilan Daftar Karya Saya Berbaris -->
     <div class="glass-card space-y-3" style="padding:14px; margin-top:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
