@@ -13,7 +13,8 @@ let activeBookDetailId = null
 
 let exploreSearchMode = 'books'
 let tempExcludedUsers = []
-let activeExcludeTarget = 'rec' // 'rec' atau 'book'
+let activeExcludeTarget = 'rec' // 'rec', 'book_profile', atau 'single_book'
+let activeSingleBookId = null
 
 // Helper sanitasi teks XSS
 function sanitizeText(str) {
@@ -104,7 +105,7 @@ function getPillValue(groupContainerId) {
   return checkedRadio ? checkedRadio.value : 'public'
 }
 
-// Akses Privasi Buku dengan Logika "Hanya Pengikut, Kecuali.."
+// Akses Privasi Buku
 async function canUserAccessBook(book) {
   if (!book) return false
   if (book.is_published === false) {
@@ -124,7 +125,6 @@ async function canUserAccessBook(book) {
   if (visibility === 'followers' || visibility === 'followers_except') {
     if (!book.user_id) return true
     
-    // Cek apakah dikecualikan
     const excludedList = book.excluded_user_ids || []
     if (visibility === 'followers_except' && excludedList.includes(currentUser.id)) {
       return false
@@ -319,13 +319,29 @@ window.openPrivacySettingsModal = function() {
   document.getElementById('modal-privacy-settings')?.classList.remove('hidden')
 }
 
-// BUKA MODAL PRIVASI CERITA DARI PROFIL (OPSI TITIK TIGA)
 window.openBookPrivacyModal = function() {
   if (!currentUser) return
   const p = currentUser.profile
   tempExcludedUsers = p?.excluded_book_user_ids || []
   setPillValue('group-privacy-book-profile', p?.book_visibility || 'public')
   document.getElementById('modal-book-privacy-settings')?.classList.remove('hidden')
+}
+
+// BUKA MODAL EDIT PRIVASI SPESIFIK CERITA (DARI DAFTAR KARYA SAYA)
+window.openSingleBookPrivacyModal = async function(bookId) {
+  if (!currentUser) return
+  try {
+    activeSingleBookId = bookId
+    const { data: book, error } = await supabase.from('books').select('*').eq('id', bookId).single()
+    if (error || !book) return window.showToast('Gagal memuat data privasi cerita', 'error')
+
+    tempExcludedUsers = book.excluded_user_ids || []
+    setPillValue('group-single-book-privacy', book.visibility || 'public')
+    document.getElementById('modal-single-book-privacy')?.classList.remove('hidden')
+    pushHistoryState('modal', 'modal-single-book-privacy')
+  } catch (err) {
+    window.showToast('Gagal membuka pengaturan privasi', 'error')
+  }
 }
 
 // BUKA MODAL EXCLUDE PENGIKUT
@@ -501,7 +517,6 @@ window.deleteBook = function(bookId) {
   })
 }
 
-// Fitur Buka Detail Buku
 window.openBookDetail = async function(bookId) {
   try {
     activeBookDetailId = bookId
@@ -1382,7 +1397,6 @@ window.toggleFollow = async function(targetUserId, isFollowing) {
   }
 }
 
-// BUKA MODAL SOSIAL TERMASUK FITUR "HAPUS PENGIKUT"
 window.openSocialModal = async function(type) {
   if (!currentUser) return window.showToast('Silakan masuk terlebih dahulu!', 'error')
   const modalSocial = document.getElementById('modal-social')
@@ -1431,7 +1445,6 @@ window.openSocialModal = async function(type) {
   }
 }
 
-// FITUR KELUARKAN / HAPUS PENGIKUT
 window.removeFollower = function(followerUserId) {
   window.showConfirmModal('Hapus Pengikut', 'Apakah kamu yakin ingin mengeluarkan akun ini dari daftar pengikutmu?', async () => {
     try {
@@ -1867,7 +1880,6 @@ function setupBookFormModal() {
       return window.showToast('Salah satu URL Bagian tidak berasal dari platform resmi terpercaya!', 'error')
     }
 
-    // Ambil default privasi dari profil user
     const defaultVis = currentUser?.profile?.book_visibility || 'public'
     const defaultExcluded = currentUser?.profile?.excluded_book_user_ids || []
 
@@ -2136,7 +2148,7 @@ function setupNavigation() {
   })
 }
 
-// Profil Saya (Tambahkan menu Privasi Cerita di Opsi Titik Tiga)
+// Profil Saya (Daftar Karya Saya dengan tombol Tambah Privasi Cepat)
 async function loadProfile() {
   const tabProfile = document.getElementById('tab-profile')
   if (!tabProfile) return
@@ -2194,7 +2206,6 @@ async function loadProfile() {
             <i class="bi bi-lock-fill" style="color:#c084fc;"></i> Privasi Tab
           </button>
 
-          <!-- Pilihan Baru: Privasi Cerita -->
           <button onclick="window.openBookPrivacyModal(); document.getElementById('my-profile-dropdown').classList.add('hidden');" 
                   style="width:100%; text-align:left; background:transparent; border:none; color:#f8fafc; padding:8px 10px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:8px;"
                   onmouseover="this.style.background='rgba(168,85,247,0.2)'" 
@@ -2256,7 +2267,7 @@ async function loadProfile() {
       </div>
     </div>
 
-    <!-- Tampilan Daftar Karya Saya Berbaris -->
+    <!-- Tampilan Daftar Karya Saya Berbaris + Tombol Edit Privasi Cerita Cepat -->
     <div class="glass-card space-y-3" style="padding:14px; margin-top:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h4 style="font-size:13px; font-weight:800; color:#c084fc;">
@@ -2291,8 +2302,11 @@ async function loadProfile() {
                       <p style="font-size:10px; color:#94a3b8;">${sanitizeText(b.author)} • <span style="color:#c084fc;">${sanitizeText(b.media_type)}</span> ${visBadge} ${pendingBadge}</p>
                     </div>
                   </div>
-                  <div style="display:flex; align-items:center; gap:6px; margin-left:8px; flex-shrink:0;">
-                    <button onclick="window.openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                  <div style="display:flex; align-items:center; gap:4px; margin-left:8px; flex-shrink:0;">
+                    <button onclick="window.openSingleBookPrivacyModal('${b.id}')" title="Ubah Privasi Cerita Ini" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                      🔒
+                    </button>
+                    <button onclick="window.openBookFormById('${b.id}')" title="Edit Cerita" style="background:rgba(99,102,241,0.25); color:#c7d2fe; border:1px solid rgba(99,102,241,0.4); padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
                       ✏️ Edit
                     </button>
                     <button onclick="window.deleteBook('${b.id}')" title="Hapus Cerita" style="background:rgba(239,68,68,0.25); color:#fca5a5; border:1px solid rgba(239,68,68,0.4); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
@@ -2539,7 +2553,7 @@ document.getElementById('form-privacy-settings')?.addEventListener('submit', asy
   }
 })
 
-// SIMPAN PRIVASI CERITA DARI PROFIL
+// SIMPAN PRIVASI DEFAULT CERITA DARI PROFIL
 document.getElementById('form-book-privacy-settings')?.addEventListener('submit', async (e) => {
   e.preventDefault()
   if (!currentUser) return
@@ -2557,6 +2571,31 @@ document.getElementById('form-book-privacy-settings')?.addEventListener('submit'
     window.showToast('Privasi Default Cerita diperbarui!')
     document.getElementById('modal-book-privacy-settings')?.classList.add('hidden')
     currentUser.profile = { ...currentUser.profile, ...updates }
+  } catch (err) {
+    window.showToast('Gagal memperbarui privasi cerita: ' + err.message, 'error')
+  }
+})
+
+// SIMPAN PRIVASI CERITA INDIVIDUAL/SPESIFIK
+document.getElementById('form-single-book-privacy')?.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  if (!currentUser || !activeSingleBookId) return
+
+  const selectedVis = getPillValue('group-single-book-privacy')
+  const updates = {
+    visibility: selectedVis,
+    excluded_user_ids: selectedVis === 'followers_except' ? tempExcludedUsers : []
+  }
+
+  try {
+    const { error } = await supabase.from('books').update(updates).eq('id', activeSingleBookId)
+    if (error) throw error
+
+    window.showToast('Privasi cerita berhasil diperbarui!')
+    document.getElementById('modal-single-book-privacy')?.classList.add('hidden')
+    loadProfile()
+    loadHomeBooks()
+    loadExploreBooks()
   } catch (err) {
     window.showToast('Gagal memperbarui privasi cerita: ' + err.message, 'error')
   }
@@ -2939,7 +2978,6 @@ function resetBannerForm() {
   if (btnSubmit) btnSubmit.innerText = 'Tambah Banner'
 }
 
-// RENDER DAFTAR TAG UNTUK KELOLA TAG ADMIN
 async function renderAdminTagList() {
   const container = document.getElementById('tag-admin-list')
   if (!container) return
@@ -2959,7 +2997,6 @@ async function renderAdminTagList() {
   `).join('')
 }
 
-// SETUP HAPUS & TAMBAH TAG
 function setupTagModalEvents() {
   const modalTag = document.getElementById('modal-tag-form')
   const btnClose = document.getElementById('close-modal-tag-form')

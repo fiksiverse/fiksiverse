@@ -314,11 +314,11 @@
     </div>
   </div>
 
-  <!-- MODAL PENGATURAN DEFAULT PRIVASI CERITA (DIPINDAHKAN DARI FORM BUKU KE PROFIL) -->
+  <!-- MODAL PENGATURAN DEFAULT PRIVASI CERITA DARI PROFIL -->
   <div id="modal-book-privacy-settings" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
       <div class="modal-header">
-        <span class="modal-title" style="color:#38bdf8;">🛡️ Privasi Cerita Saya</span>
+        <span class="modal-title" style="color:#38bdf8;">🛡️ Privasi Default Cerita</span>
         <button class="modal-close" onclick="document.getElementById('modal-book-privacy-settings').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
       </div>
 
@@ -328,7 +328,7 @@
             🔒 Pengaturan Default Privasi Cerita/Karya yang kamu buat:
           </label>
           <div class="custom-privacy-options" id="group-privacy-book-profile">
-            <label class="privacy-pill active" onclick="selectCustomPill(this, 'book', 'public')">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'book_profile', 'public')">
               <input type="radio" name="book_vis_prof" value="public" checked>
               <div class="privacy-pill-content">
                 <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
@@ -340,10 +340,10 @@
               <div class="privacy-pill-indicator"></div>
             </label>
 
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers')">
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book_profile', 'followers')">
               <input type="radio" name="book_vis_prof" value="followers">
               <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div class="privacy-pill-icon"><div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div></div>
                 <div>
                   <div class="privacy-pill-title">Hanya Pengikut Saya</div>
                   <div class="privacy-pill-desc">Dikunci khusus untuk pengikut akun kamu</div>
@@ -352,7 +352,7 @@
               <div class="privacy-pill-indicator"></div>
             </label>
 
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers_except')">
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book_profile', 'followers_except')">
               <input type="radio" name="book_vis_prof" value="followers_except">
               <div class="privacy-pill-content">
                 <div class="privacy-pill-icon"><i class="bi bi-person-x-fill"></i></div>
@@ -364,7 +364,7 @@
               <div class="privacy-pill-indicator"></div>
             </label>
 
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'private')">
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book_profile', 'private')">
               <input type="radio" name="book_vis_prof" value="private">
               <div class="privacy-pill-content">
                 <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
@@ -378,7 +378,76 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-full btn-galaxy-primary" style="margin-top:8px;">Simpan Privasi Cerita</button>
+        <button type="submit" class="btn-full btn-galaxy-primary" style="margin-top:8px;">Simpan Privasi Default Cerita</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL UBAH PRIVASI SPESIFIK INDIVIDUAL CERITA (LANGSUNG DARI ITEM KARYA SAYA) -->
+  <div id="modal-single-book-privacy" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#38bdf8;">🔒 Ubah Privasi Cerita Ini</span>
+        <button class="modal-close" onclick="document.getElementById('modal-single-book-privacy').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="form-single-book-privacy" class="space-y-4">
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:6px;">
+            Pilih hak akses/privasi untuk cerita ini:
+          </label>
+          <div class="custom-privacy-options" id="group-single-book-privacy">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'single_book', 'public')">
+              <input type="radio" name="single_book_vis" value="public" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Publik</div>
+                  <div class="privacy-pill-desc">Dapat dilihat oleh semua orang</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'single_book', 'followers')">
+              <input type="radio" name="single_book_vis" value="followers">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
+                  <div class="privacy-pill-desc">Dikunci khusus untuk pengikut akun kamu</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'single_book', 'followers_except')">
+              <input type="radio" name="single_book_vis" value="followers_except">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-person-x-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut, Kecuali...</div>
+                  <div class="privacy-pill-desc">Pilih pengikut yang dikecualikan</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'single_book', 'private')">
+              <input type="radio" name="single_book_vis" value="private">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Saya</div>
+                  <div class="privacy-pill-desc">Arsip/Perpustakaan Pribadi</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-full btn-galaxy-primary" style="margin-top:8px;">Simpan Privasi Cerita Ini</button>
       </form>
     </div>
   </div>
@@ -411,7 +480,7 @@
     </div>
   </div>
 
-  <!-- MODAL FORM TERPADU UNTUK BUKU/AU (Ringkas Tanpa Hak Akses Privasi) -->
+  <!-- MODAL FORM TERPADU UNTUK BUKU/AU -->
   <div id="modal-book-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
