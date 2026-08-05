@@ -7,10 +7,10 @@
   <title>FiksiVerse - Semesta Bacaan Tanpa Batas</title>
 
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Temukan, simpan ke bookmark, dan rekomendasikan novel, komik, dan AU favoritmu di FiksiVerse. Tempat kumpulnya para pembaca cerita!">
-  <meta name="keywords" content="fiksiverse, rekomendasi novel, baca komik, twitter au, fanfiction, bookmark novel">
+  <meta name="description" content="Temukan, simpan ke markah, dan rekomendasikan novel, komik, dan AU favoritmu di FiksiVerse. Tempat kumpulnya para pembaca cerita!">
+  <meta name="keywords" content="fiksiverse, rekomendasi novel, baca komik, twitter au, fanfiction, markah novel">
 
-  <!-- DOMPurify CDN (Pembersih Script Jahat / XSS) -->
+  <!-- DOMPurify CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -45,51 +45,59 @@
   </header>
 
   <main>
-    <!-- TAB 1: HOME -->
+    <!-- TAB 1: BERANDA -->
     <div id="tab-home" class="tab-content space-y-6">
       <div class="search-container">
         <i class="bi bi-search"></i>
         <input type="text" id="home-search-trigger" readonly placeholder="Cari novel, komik, atau sosmed AU..." class="search-input">
       </div>
 
-      <!-- BANNER CAROUSEL GALAXY -->
+      <!-- BANNER CAROUSEL -->
       <div class="banner-carousel-wrapper">
         <div id="banner-slider" class="banner-slider"></div>
         <div id="banner-dots" class="banner-dots"></div>
       </div>
 
-      <!-- CARD POPULER MINGGU INI -->
+      <!-- CARD REKOMENDASI TERATAS AU -->
       <section>
         <h2 class="section-title">📱 Rekomendasi Teratas: Kategori AU Sosmed</h2>
         <div id="list-popular-au" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
+      <!-- CARD REKOMENDASI TERATAS NOVEL -->
       <section>
         <h2 class="section-title">📖 Rekomendasi Teratas: Kategori Novel</h2>
         <div id="list-popular-novel" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
+      <!-- CARD REKOMENDASI TERATAS KOMIK -->
       <section>
         <h2 class="section-title">🎨 Rekomendasi Teratas: Kategori Komik</h2>
         <div id="list-popular-komik" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
-      <!-- SECTION REKOMENDASI TEMAN / MUTUALAN -->
+      <!-- TEMUKAN TEMAN MUTUAL -->
       <section>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2 class="section-title" style="margin-bottom:2px;">👥 Mutualan Yuk!</h2>
+          <h2 class="section-title" style="margin-bottom:2px;">👥 Temukan Teman Mutual</h2>
         </div>
         <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">🌌 Temukan teman dengan selera cerita yang sama denganmu.</p>
         <div id="list-recommended-users-home" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
-      <!-- SECTION HORIZONTAL: REKOMENDASI TERBANYAK -->
+      <!-- PALING BANYAK DIREKOMENDASIKAN -->
       <section>
         <h2 class="section-title">✨ Paling Banyak Direkomendasikan</h2>
         <div id="list-recommended-home" class="book-scroll-horizontal hide-scrollbar"></div>
       </section>
 
-      <!-- SECTION HORIZONTAL: TERBARU -->
+      <!-- REKOMENDASI EDITOR -->
+      <section>
+        <h2 class="section-title">🎲 Rekomendasi Editor</h2>
+        <div id="list-editor-recommended-home" class="book-scroll-horizontal hide-scrollbar"></div>
+      </section>
+
+      <!-- TERBARU DI SEMESTA -->
       <section>
         <h2 class="section-title">🚀 Terbaru di Semesta</h2>
         <div id="list-newest" class="book-scroll-horizontal hide-scrollbar"></div>
@@ -117,9 +125,9 @@
       </footer>
     </div>
 
-    <!-- TAB 2: EXPLORE -->
+    <!-- TAB 2: CARI / EXPLORE -->
     <div id="tab-explore" class="tab-content hidden space-y-4">
-      <h2 class="page-header-title">🔍 Jelajahi Semesta</h2>
+      <h2 class="page-header-title">🔍 Cari & Jelajahi Semesta</h2>
       
       <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:16px; padding-bottom:8px;">
         <button id="explore-mode-books" class="auth-tab active" type="button">📚 Cari Karya / Buku</button>
@@ -154,19 +162,42 @@
       <div id="list-explore-users" class="space-y-2 hidden" style="padding-top:8px;"></div>
     </div>
 
-    <!-- TAB 3: BOOKMARK -->
-    <div id="tab-bookmark" class="tab-content hidden space-y-4">
-      <h2 class="page-header-title">❤️ Bookmark Saya</h2>
-      <div id="list-bookmark" class="book-grid-vertical"></div>
+    <!-- TAB 3: BUKU SAYA -->
+    <div id="tab-my-books" class="tab-content hidden space-y-4">
+      <h2 class="page-header-title">📚 Buku Saya</h2>
+
+      <div style="display:flex; border-bottom:1px solid rgba(168, 85, 247, 0.2); gap:8px; padding-bottom:8px;">
+        <button id="sub-tab-markah" onclick="window.switchMyBooksSubTab('markah')" class="auth-tab active" type="button" style="font-size:12px; padding:6px 12px;">
+          🔖 Markah
+        </button>
+        <button id="sub-tab-rekomendasi" onclick="window.switchMyBooksSubTab('rekomendasi')" class="auth-tab" type="button" style="font-size:12px; padding:6px 12px;">
+          ⭐ Rekomendasi
+        </button>
+        <button id="sub-tab-karya" onclick="window.switchMyBooksSubTab('karya')" class="auth-tab" type="button" style="font-size:12px; padding:6px 12px;">
+          ✍️ Karya Saya
+        </button>
+      </div>
+
+      <div id="sec-my-markah">
+        <div id="list-bookmark" class="book-grid-vertical"></div>
+      </div>
+
+      <div id="sec-my-rekomendasi" class="hidden">
+        <div id="list-user-recommended" class="book-grid-vertical"></div>
+      </div>
+
+      <div id="sec-my-karya" class="hidden space-y-3">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4 style="font-size:13px; font-weight:800; color:#c084fc;">Daftar Karya Saya</h4>
+          <button onclick="window.openBookFormById(null)" class="btn-galaxy-primary" style="font-size:11px; padding:6px 12px;">
+            + Tambah Karya
+          </button>
+        </div>
+        <div id="list-my-karya-grid" class="book-grid-vertical"></div>
+      </div>
     </div>
 
-    <!-- TAB 4: RECOMMENDED BY ME -->
-    <div id="tab-recommended" class="tab-content hidden space-y-4">
-      <h2 class="page-header-title">⭐ Direkomendasikan Saya</h2>
-      <div id="list-user-recommended" class="book-grid-vertical"></div>
-    </div>
-
-    <!-- TAB 5: PROFILE ME -->
+    <!-- TAB 4: PROFIL -->
     <div id="tab-profile" class="tab-content hidden space-y-4">
       <div id="profile-card" class="profile-card-hero"></div>
     </div>
@@ -201,7 +232,7 @@
           <input type="text" id="edit-username" maxlength="20" required placeholder="username_kamu" class="form-input">
         </div>
         <div class="form-group">
-          <label>URL Foto Profile (Avatar)</label>
+          <label>URL Foto Profil (Avatar)</label>
           <input type="url" id="edit-avatar-url" placeholder="https://..." class="form-input">
         </div>
         <div class="form-group">
@@ -252,6 +283,18 @@
               <div class="privacy-pill-indicator"></div>
             </label>
 
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'rec', 'followers_except')">
+              <input type="radio" name="rec_vis" value="followers_except">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-person-x-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut, Kecuali...</div>
+                  <div class="privacy-pill-desc">Pilih pengikut yang ingin dikecualikan</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
             <label class="privacy-pill" onclick="selectCustomPill(this, 'rec', 'private')">
               <input type="radio" name="rec_vis" value="private">
               <div class="privacy-pill-content">
@@ -271,6 +314,92 @@
     </div>
   </div>
 
+  <!-- MODAL PENGATURAN DEFAULT PRIVASI CERITA (DIPINDAHKAN DARI FORM BUKU KE PROFIL) -->
+  <div id="modal-book-privacy-settings" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#38bdf8;">🛡️ Privasi Cerita Saya</span>
+        <button class="modal-close" onclick="document.getElementById('modal-book-privacy-settings').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <form id="form-book-privacy-settings" class="space-y-4">
+        <div>
+          <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:6px;">
+            🔒 Pengaturan Default Privasi Cerita/Karya yang kamu buat:
+          </label>
+          <div class="custom-privacy-options" id="group-privacy-book-profile">
+            <label class="privacy-pill active" onclick="selectCustomPill(this, 'book', 'public')">
+              <input type="radio" name="book_vis_prof" value="public" checked>
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Publik</div>
+                  <div class="privacy-pill-desc">Dapat dilihat oleh semua orang</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers')">
+              <input type="radio" name="book_vis_prof" value="followers">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
+                  <div class="privacy-pill-desc">Dikunci khusus untuk pengikut akun kamu</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers_except')">
+              <input type="radio" name="book_vis_prof" value="followers_except">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-person-x-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Pengikut, Kecuali...</div>
+                  <div class="privacy-pill-desc">Pilih pengikut yang dikecualikan</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+
+            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'private')">
+              <input type="radio" name="book_vis_prof" value="private">
+              <div class="privacy-pill-content">
+                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
+                <div>
+                  <div class="privacy-pill-title">Hanya Saya</div>
+                  <div class="privacy-pill-desc">Arsip/Perpustakaan Pribadi</div>
+                </div>
+              </div>
+              <div class="privacy-pill-indicator"></div>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-full btn-galaxy-primary" style="margin-top:8px;">Simpan Privasi Cerita</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL EXCLUDE PENGIKUT -->
+  <div id="modal-exclude-followers" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#c084fc;">🚫 Pengecualian Pengikut</span>
+        <button class="modal-close" onclick="document.getElementById('modal-exclude-followers').classList.add('hidden')"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <p style="font-size:11px; color:#cbd5e1;">Pilih pengikut yang <b>TIDAK</b> diperbolehkan melihat konten ini:</p>
+      <div id="exclude-followers-container" class="space-y-2" style="max-height:250px; overflow-y:auto;"></div>
+
+      <button type="button" class="btn-full btn-galaxy-primary" onclick="document.getElementById('modal-exclude-followers').classList.add('hidden')">
+        Selesai Memilih
+      </button>
+    </div>
+  </div>
+
   <!-- MODAL DAFTAR USER DIBLOKIR -->
   <div id="modal-blocked-list" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
@@ -282,7 +411,7 @@
     </div>
   </div>
 
-  <!-- MODAL FORM TERPADU UNTUK BUKU/AU -->
+  <!-- MODAL FORM TERPADU UNTUK BUKU/AU (Ringkas Tanpa Hak Akses Privasi) -->
   <div id="modal-book-form" class="modal-overlay hidden">
     <div class="modal-box space-y-4" style="max-height:85vh; overflow-y:auto;">
       <div class="modal-header">
@@ -295,9 +424,9 @@
           📌 Ketentuan Tambah Cerita
         </h5>
         <ul style="font-size: 10px; color: #cbd5e1; padding-left: 14px; margin: 0; line-height: 1.5;">
-          <li>Pastikan Judul, Penulis, dan URL Cover diisi dengan benar. Lihat FAQ pada home untuk cara upload gambar.</li>
-          <li>Pastikan paste link baca menggunakan platform resmi terpercaya (x.com, wattpad, tiktok, dll).</li>
-          <li>Dilarang menambahkan cerita berbau SARA, spam, atau promosi ilegal.</li>
+          <li>Pastikan Judul, Penulis, dan URL Sampul diisi dengan benar. Lihat FAQ pada beranda untuk cara mengunggah gambar.</li>
+          <li>Pastikan tautan baca menggunakan platform resmi terpercaya (x.com, wattpad, tiktok, dll).</li>
+          <li>Privasi cerita akan menggunakan pengaturan default di <b>Profil > Privasi Cerita</b>.</li>
         </ul>
       </div>
 
@@ -308,52 +437,8 @@
 
       <form id="form-book" class="space-y-3">
         <input type="hidden" id="book-id">
-
-        <!-- 1. PRIVASI CERITA (CUSTOM PILLS) -->
-        <div>
-          <label style="font-size:11px; font-weight:800; color:#c084fc; display:block; margin-bottom:4px;">
-            🔒 Hak Akses / Privasi Cerita
-          </label>
-          <div class="custom-privacy-options" id="group-privacy-book">
-            <label class="privacy-pill active" onclick="selectCustomPill(this, 'book', 'public')">
-              <input type="radio" name="book_vis" value="public" checked>
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-globe"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Publik</div>
-                  <div class="privacy-pill-desc">Dapat dilihat oleh semua orang</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'followers')">
-              <input type="radio" name="book_vis" value="followers">
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-people-fill"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Hanya Pengikut Saya</div>
-                  <div class="privacy-pill-desc">Hanya dikunci untuk pengikut akun kamu</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-
-            <label class="privacy-pill" onclick="selectCustomPill(this, 'book', 'private')">
-              <input type="radio" name="book_vis" value="private">
-              <div class="privacy-pill-content">
-                <div class="privacy-pill-icon"><i class="bi bi-lock-fill"></i></div>
-                <div>
-                  <div class="privacy-pill-title">Hanya Saya</div>
-                  <div class="privacy-pill-desc">Arsip/Perpustakaan Pribadi</div>
-                </div>
-              </div>
-              <div class="privacy-pill-indicator"></div>
-            </label>
-          </div>
-        </div>
         
-        <!-- 2. TIPE KARYA (CUSTOM PILLS) -->
+        <!-- 1. TIPE KARYA -->
         <div>
           <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
             📚 Tipe Karya / Media
@@ -402,7 +487,7 @@
           <input type="text" id="book-title" required placeholder="Contoh: Solo Leveling / Lucky Girl" class="form-input">
         </div>
 
-        <!-- 3. KEPEMILIKAN KARYA (CUSTOM PILLS) -->
+        <!-- 2. KEPEMILIKAN KARYA -->
         <div id="group-uploader-type">
           <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
             👤 Status Pengunggah
@@ -435,7 +520,7 @@
         </div>
 
         <div class="form-group">
-          <label>Penulis / Username Pembuat</label>
+          <label>Penulis / Pembuat Karya</label>
           <input type="text" id="book-author" required placeholder="Contoh: @author_nim" class="form-input">
         </div>
 
@@ -446,10 +531,10 @@
 
         <div class="form-group">
           <label>Genre <span style="font-size:10px; color:#94a3b8;">(Pisahkan koma, maks 50 karakter)</span></label>
-          <input type="text" id="book-genre" maxlength="50" placeholder="Action, Romance, Angst" class="form-input">
+          <input type="text" id="book-genre" maxlength="50" placeholder="Aksi, Romantis, Angst" class="form-input">
         </div>
 
-        <!-- 4. STATUS CERITA (CUSTOM PILLS) -->
+        <!-- 3. STATUS CERITA -->
         <div>
           <label style="font-size:11px; font-weight:800; color:#f8fafc; display:block; margin-bottom:4px;">
             📌 Status Cerita
@@ -482,39 +567,39 @@
         </div>
 
         <div class="form-group">
-          <label>URL Gambar Cover Utama</label>
+          <label>URL Gambar Sampul Utama</label>
           <input type="url" id="book-cover-url" required placeholder="https://..." class="form-input">
         </div>
 
         <div class="glass-card space-y-2" style="padding:10px;">
-          <label style="font-weight:700; font-size:11px; color:#c084fc;">Preview Images (Opsional, Maksimal 4)</label>
-          <input type="url" id="preview-img-1" placeholder="URL Preview Image 1" class="form-input" style="font-size:11px;">
-          <input type="url" id="preview-img-2" placeholder="URL Preview Image 2" class="form-input" style="font-size:11px;">
-          <input type="url" id="preview-img-3" placeholder="URL Preview Image 3" class="form-input" style="font-size:11px;">
-          <input type="url" id="preview-img-4" placeholder="URL Preview Image 4" class="form-input" style="font-size:11px;">
+          <label style="font-weight:700; font-size:11px; color:#c084fc;">Gambar Pratinjau (Opsional, Maksimal 4)</label>
+          <input type="url" id="preview-img-1" placeholder="URL Pratinjau 1" class="form-input" style="font-size:11px;">
+          <input type="url" id="preview-img-2" placeholder="URL Pratinjau 2" class="form-input" style="font-size:11px;">
+          <input type="url" id="preview-img-3" placeholder="URL Pratinjau 3" class="form-input" style="font-size:11px;">
+          <input type="url" id="preview-img-4" placeholder="URL Pratinjau 4" class="form-input" style="font-size:11px;">
         </div>
 
         <div class="form-group">
-          <label>Link "Baca Buku" / Versi Narasi (Opsional)</label>
+          <label>Tautan "Baca Buku" / Versi Narasi (Opsional)</label>
           <input type="url" id="book-read-link" placeholder="https://wattpad.com/..." class="form-input">
         </div>
 
         <div class="form-group">
-          <label>Link "Baca Sosmed AU" / Versi Sosmed (Opsional)</label>
+          <label>Tautan "Baca Sosmed AU" / Versi Sosmed (Opsional)</label>
           <input type="url" id="book-read-link-2" placeholder="https://x.com/..." class="form-input">
         </div>
 
         <div class="form-group" id="group-buy-link" style="display:none;">
-          <label style="color:#38bdf8;">👑 Link "Beli Buku" (Khusus Admin - Domain Bebas)</label>
+          <label style="color:#38bdf8;">👑 Tautan "Beli Buku" (Khusus Admin)</label>
           <input type="url" id="book-buy-link" placeholder="https://tokopedia.com/..." class="form-input">
         </div>
 
         <div id="au-specific-fields" style="display:none;" class="glass-card space-y-3" style="padding:10px;">
           <div id="multi-part-section" class="space-y-2">
             <label style="font-weight:700; font-size:11px; color:#c084fc; display:flex; justify-content:space-between; align-items:center;">
-              Daftar Link Part / Post (Bila AU Punya Banyak Link Part seperti IG/TikTok)
+              Daftar Tautan Bagian / Pos (Untuk AU dengan banyak tautan)
               <button type="button" id="btn-add-part" style="background:rgba(168,85,247,0.2); color:#e9d5ff; border:none; padding:4px 8px; border-radius:6px; font-size:9px; font-weight:700; cursor:pointer;">
-                + Tambah Part
+                + Tambah Bagian
               </button>
             </label>
             <div id="book-parts-container" class="space-y-2"></div>
@@ -531,13 +616,13 @@
 
       <form id="form-book-bulk" class="space-y-3 hidden">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <label style="font-size:11px; font-weight:700; color:#cbd5e1;">Paste Data JSON Buku</label>
+          <label style="font-size:11px; font-weight:700; color:#cbd5e1;">Tempel Data JSON Buku</label>
           <button id="btn-fill-template" type="button" style="background:rgba(168,85,247,0.2); color:#e9d5ff; border:1px solid rgba(168,85,247,0.4); padding:4px 10px; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer;">
-            📋 Isi Template Contoh
+            📋 Isi Contoh Templat
           </button>
         </div>
         <textarea id="bulk-json-input" rows="12" placeholder='[&#10;  {&#10;    "title": "Buku 1",&#10;    "author": "Penulis A",&#10;    "platform": "Wattpad",&#10;    "media_type": "Novel",&#10;    "cover_url": "https://..."&#10;  }&#10;]' class="form-input" style="font-family:monospace; font-size:11px; resize:vertical;"></textarea>
-        <button type="submit" class="btn-full btn-galaxy-primary">🚀 Import Semua Buku</button>
+        <button type="submit" class="btn-full btn-galaxy-primary">🚀 Impor Semua Buku</button>
       </form>
     </div>
   </div>
@@ -550,6 +635,30 @@
         <button id="close-modal-detail" class="modal-close"><i class="bi bi-x-lg"></i></button>
       </div>
       <div id="detail-content" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- MODAL PENAHANAN (PENDING) CERITA -->
+  <div id="modal-pending-reason" class="modal-overlay hidden">
+    <div class="modal-box space-y-4">
+      <div class="modal-header">
+        <span class="modal-title" style="color:#f87171;">🛑 Tahan (Pending) Cerita</span>
+        <button id="close-modal-pending-reason" class="modal-close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <input type="hidden" id="pending-book-id">
+
+        <div class="form-group">
+          <label>Alasan Penahanan Cerita</label>
+          <textarea id="pending-reason-input" rows="3" placeholder="Masukkan alasan penahanan cerita (contoh: Mengandung unsur plagiarisme, konten tidak pantas)..." class="form-input" style="resize:none;"></textarea>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" id="btn-cancel-pending" class="btn-full" style="background:rgba(255,255,255,0.1); color:#cbd5e1;">Batal</button>
+          <button type="button" id="btn-submit-pending" class="btn-full" style="background:#ef4444; color:white;">Tahan Cerita</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -575,7 +684,7 @@
           <input type="url" id="banner-img-url" required placeholder="https://..." class="form-input">
         </div>
         <div class="form-group">
-          <label>Link Tujuan (Opsional)</label>
+          <label>Tautan Tujuan (Opsional)</label>
           <input type="url" id="banner-link-url" placeholder="https://..." class="form-input">
         </div>
         <button type="submit" class="btn-full btn-galaxy-cyan">Tambah Banner</button>
@@ -601,7 +710,7 @@
       <form id="form-tag" class="space-y-3">
         <div class="form-group">
           <label>Nama Tag / Genre Baru <span style="font-size:10px; color:#94a3b8;">(Maks 20 karakter)</span></label>
-          <input type="text" id="tag-name" maxlength="20" required placeholder="Contoh: Mystery, Sci-Fi" class="form-input">
+          <input type="text" id="tag-name" maxlength="20" required placeholder="Contoh: Misteri, Sci-Fi" class="form-input">
         </div>
         <button type="submit" class="btn-full" style="background:linear-gradient(135deg, #f43f5e, #a855f7); color:white; font-weight:700;">Tambah Tag</button>
       </form>
@@ -631,38 +740,38 @@
 
         <div class="glass-card" style="padding: 12px;">
           <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🚀 Bagaimana cara menambahkan buku/AU baru?</h4>
-          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Kamu tinggal klik tombol <b>"+ Tambah Cerita / AU"</b> di halaman <i>Explore</i> atau <i>Profil</i>. Isi data ceritanya, lalu simpan.</p>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Kamu tinggal klik tombol <b>"+ Tambah Cerita / AU"</b> di halaman <i>Cari</i> atau <i>Buku Saya</i>. Isi data ceritanya, lalu simpan.</p>
         </div>
 
         <div class="glass-card" style="padding: 12px;">
           <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">📋 Panduan & Syarat Menambahkan Karya</h4>
           
           <ul style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0; padding-left: 16px;" class="space-y-2">
-            <li>Wajib sudah login/terdaftar di akun FiksiVerse.</li>
+            <li>Wajib sudah masuk/terdaftar di akun FiksiVerse.</li>
             <li>Isi nama penulis & judul sesuai karya asli.</li>
             <li>Bebas konten SARA, spam, dan iklan di luar konteks cerita.</li>
             
             <li style="padding-top: 4px;">
-              <b>🖼️ Cara Mengambil URL Gambar Cover:</b>
+              <b>🖼️ Cara Mengambil URL Gambar Sampul:</b>
               <div style="background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 8px; margin-top: 6px; border: 1px solid rgba(168,85,247,0.2);" class="space-y-2">
                 <div>
                   <span style="color: #38bdf8; font-weight: 700; font-size: 10px;">🌐 Opsi 1: Dari Google / Web Internet</span>
                   <ol style="font-size: 10px; color: #94a3b8; margin: 2px 0 0; padding-left: 14px;">
                     <li>Tekan lama/klik kanan gambar ➡️ pilih <i>"Buka gambar di tab baru"</i>.</li>
-                    <li>Salin link di address bar tab baru tersebut.</li>
+                    <li>Salin tautan di bilah alamat tab baru tersebut.</li>
                   </ol>
                 </div>
 
                 <div>
                   <span style="color: #c084fc; font-weight: 700; font-size: 10px;">📱 Opsi 2: Dari Galeri HP / File Sendiri</span>
                   <ol style="font-size: 10px; color: #94a3b8; margin: 2px 0 0; padding-left: 14px;">
-                    <li>Buka situs <b>imgbb.com</b> lalu upload foto kamu.</li>
+                    <li>Buka situs <b>imgbb.com</b> lalu unggah foto kamu.</li>
                     <li>Setelah selesai, salin bagian <b>"Direct Link"</b>.</li>
                   </ol>
                 </div>
 
                 <p style="font-size: 9px; color: #fbbf24; margin: 4px 0 0;">
-                  *Pastikan ujung link berakhiran <code>.jpg</code>, <code>.png</code>, atau <code>.webp</code>. Cara ini berlaku juga untuk mengganti foto profil!
+                  *Pastikan akhiran tautan berakhiran <code>.jpg</code>, <code>.png</code>, atau <code>.webp</code>.
                 </p>
               </div>
             </li>
@@ -670,14 +779,14 @@
         </div>
 
         <div class="glass-card" style="padding: 12px;">
-          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🔗 Bagaimana cara membagikan link buku?</h4>
-          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Buka detail cerita mana saja, lalu klik tombol <b>"Bagikan"</b>. Link akan otomatis tersalin.</p>
+          <h4 style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">🔗 Bagaimana cara membagikan tautan buku?</h4>
+          <p style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin: 0;">Buka detail cerita mana saja, lalu klik tombol <b>"Bagikan"</b>. Tautan akan otomatis tersalin.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL LAPORAN KONTEN / USER / KOMENTAR -->
+  <!-- MODAL LAPORAN KONTEN -->
   <div id="modal-report" class="modal-overlay hidden">
     <div class="modal-box space-y-4">
       <div class="modal-header">
@@ -751,11 +860,11 @@
 
       <form id="form-login" class="space-y-3">
         <div class="form-group">
-          <label>Email</label>
+          <label>Pos-el (Email)</label>
           <input type="email" id="login-email" required placeholder="nama@email.com" class="form-input">
         </div>
         <div class="form-group">
-          <label>Password</label>
+          <label>Kata Sandi</label>
           <input type="password" id="login-password" required placeholder="******" class="form-input">
         </div>
         <button type="submit" class="btn-full btn-galaxy-primary">Masuk</button>
@@ -767,11 +876,11 @@
           <input type="text" id="reg-fullname" required placeholder="Nama Kamu" class="form-input">
         </div>
         <div class="form-group">
-          <label>Email</label>
+          <label>Pos-el (Email)</label>
           <input type="email" id="reg-email" required placeholder="nama@email.com" class="form-input">
         </div>
         <div class="form-group">
-          <label>Password</label>
+          <label>Kata Sandi</label>
           <input type="password" id="reg-password" required placeholder="Minimal 6 karakter" class="form-input">
         </div>
         <button type="submit" class="btn-full btn-galaxy-primary">Buat Akun</button>
@@ -783,19 +892,15 @@
   <nav class="bottom-nav">
     <button class="nav-btn active" data-tab="tab-home">
       <i class="bi bi-house-door-fill"></i>
-      <span>Home</span>
+      <span>Beranda</span>
     </button>
     <button class="nav-btn" data-tab="tab-explore">
       <i class="bi bi-compass"></i>
-      <span>Explore</span>
+      <span>Cari</span>
     </button>
-    <button class="nav-btn" data-tab="tab-bookmark">
-      <i class="bi bi-bookmark-heart"></i>
-      <span>Bookmark</span>
-    </button>
-    <button class="nav-btn" data-tab="tab-recommended">
-      <i class="bi bi-star"></i>
-      <span>Rekomendasi</span>
+    <button class="nav-btn" data-tab="tab-my-books">
+      <i class="bi bi-book-half"></i>
+      <span>Buku Saya</span>
     </button>
     <button class="nav-btn" data-tab="tab-profile">
       <i class="bi bi-person"></i>
